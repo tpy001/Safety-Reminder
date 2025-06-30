@@ -1,0 +1,26 @@
+
+dataset:
+    _target_: src.dataset.MMSafetyBench
+    # data_path: data/MMSafetyBench/
+    data_path: data/MMSafetyBench_sampled/
+    split: test
+    safe: False
+    image_type: SD+TYPO
+    scenario:
+        [
+            '01-Illegal_Activitiy',
+            '02-HateSpeech',
+            '03-Malware_Generation',
+            '04-Physical_Harm',
+            '05-EconomicHarm',
+            '06-Fraud',
+            '07-Sex',
+            # '08-Political_Lobbying',
+            '09-Privacy_Violence',
+            # '10-Legal_Opinion',
+            # '11-Financial_Advice',
+            # '12-Health_Consultation',
+            # '13-Gov_Decision'
+        ]
+    # sample: 32
+    seed: 0

@@ -1,0 +1,12 @@
+dataset:
+  _target_: src.dataset.SPA_VL
+  data_path: data/SPA_VL/
+  # split: train
+  split: test
+  question: question
+  answer: chosen
+  image_PATH: image_name
+  image: image
+  safe: false
+  # sample: 32
+  seed: 0

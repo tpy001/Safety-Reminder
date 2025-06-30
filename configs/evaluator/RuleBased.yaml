@@ -1,0 +1,2 @@
+evaluator:
+    _target_: src.evaluator.RuleBasedEvaluator

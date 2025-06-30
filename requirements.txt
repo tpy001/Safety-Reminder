@@ -1,0 +1,12 @@
+transformers==4.46.0
+hydra-core
+pytest
+debugpy
+datasets
+accelerate
+loguru
+sentencepiece
+einops
+pandas
+tqdm
+huggingface_hub

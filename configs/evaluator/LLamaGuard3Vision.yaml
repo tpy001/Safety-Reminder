@@ -1,0 +1,3 @@
+evaluator:
+    _target_: src.evaluator.LlamaGuard3Vision
+    model_path: /data3/tangpeiyuan/LLM/weights/LlamaGuard3Vision/
