@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
     del model
     torch.cuda.empty_cache()  
-    safe_pred = evaluator.judge(pred=output_text, data=test_data['ori_question'])
+    safe_pred = evaluator.judge(answers=output_text, data=test_data['ori_question'])
 
     data = {
         "question": test_data['question'],

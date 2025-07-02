@@ -55,7 +55,7 @@ class BaseTestJailbreakLlaVA:
             use_image=True,
             batch_size=2
         )
-        safe_pred = self.evaluator.judge(pred=output_text, data=test_data['ori_question'])
+        safe_pred = self.evaluator.judge(answers=output_text, data=test_data['ori_question'])
 
         expected_output = self.expected_output
         for i in range(len(safe_pred)):
@@ -89,6 +89,11 @@ class TestLlavaVLSafe(BaseTestJailbreakLlaVA):
 class TestSPA_VL(BaseTestJailbreakLlaVA):
     config_name = "llava_SPA_VL.yaml"
     expected_output =  ['true', 'true', 'false', 'true']
+
+class TestPGDAttack(BaseTestJailbreakLlaVA):
+    config_name = "llava_PGDAttackDataset.yaml"
+    expected_output =  ['false', 'false', 'false', 'false']
+
 
 
    

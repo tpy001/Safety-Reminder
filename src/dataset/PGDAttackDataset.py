@@ -1,10 +1,11 @@
-
-class JailbreakV28KDataset(BaseDataset):
+from .base_dataset import BaseDataset
+class PGDAttackDataset(BaseDataset):
     def __init__(self, adv_img,text_dataset,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.text_dataset = text_dataset
         self.adv_img = adv_img
         self.data = self.load_dataset()
+        
     
     def load_dataset(self):
         if "image" in self.text_dataset.data.column_names:

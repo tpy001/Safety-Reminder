@@ -167,7 +167,7 @@ class LLamaGuard3(JailbreakEvaluator):
             labels.append(label)
         return labels
 
-    def judge(self, pred, data,*args, **kwargs):
+    def judge(self, answers, data,*args, **kwargs):
         if isinstance(data,list):
             questions = data
         else:
@@ -176,8 +176,8 @@ class LLamaGuard3(JailbreakEvaluator):
                 questions = data['question']
             else:
                 questions = data['ori_question']
-        assert len(questions) == len(pred)
-        formatted_prompts = self.apply_chat_template(questions,pred)
+        assert len(questions) == len(answers)
+        formatted_prompts = self.apply_chat_template(questions,answers)
 
         outputs = self.predict(formatted_prompts,self.batchsize)
         return self.post_process(outputs)
