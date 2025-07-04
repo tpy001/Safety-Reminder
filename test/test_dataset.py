@@ -139,6 +139,20 @@ class TestSPA_VL(BaseTestDataset):
 
 class TestPGDAttackDataset(BaseTestDataset):
     config_path = "configs/dataset/PGDAttackDataset.yaml"
-    
+
+
+class TestSafetyAlignedDataset(BaseTestDataset):
+    config_path = "configs/dataset/SafetyAlignedDataset.yaml"
+    def test_safe_unsafe_count(self):
+        safe_list = self.data_list["safe"]
+        count_true = sum(safe_list)
+        count_false = len(safe_list) - count_true
+        
+        assert count_true > 0, "There should be at least one safe sample."
+        assert count_false > 0, "There should be at least one unsafe sample."
+        print(f"Safe count (True): {count_true}")
+        print(f"Unsafe count (False): {count_false}")
+
+
 
 

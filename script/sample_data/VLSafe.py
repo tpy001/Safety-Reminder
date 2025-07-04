@@ -13,7 +13,7 @@ from PIL import Image
 from src.utils import debug
 import json
 
-debug()
+# debug()
 set_seed(0)
 num_samples = 300
 output_dir = "data/VLSafe_sampled/"

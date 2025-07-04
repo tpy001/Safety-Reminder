@@ -14,14 +14,19 @@ class SPA_VL(BaseDataset):
             },
             desc="Adding 'category' column"
         )
+
+        if self.split == 'train':
+             self.data = self.data.map(
+                lambda x: {"image": os.path.join(self.data_path, "train_converted", "images", x["category"],x["image"])},
+            )
+             
         
     def load_dataset(self):
         if self.split == 'train':
             return huggingface_load_dataset(
-                "parquet",
-                data_files={"train": os.path.join(self.data_path, "train_converted", "data.parquet")}
+                "json",
+                data_files={"train": os.path.join(self.data_path, "train_converted", "SPA_VL_sampled.json")}
             )["train"]
-    
         elif self.split == 'test':
             return huggingface_load_dataset(
                 "parquet",

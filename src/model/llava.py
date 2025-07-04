@@ -46,7 +46,7 @@ def build_llava_chat_template(question: str, use_image: bool = True) -> list:
         }
     ]
 
-def format_prompt(tokenizer, questions, add_generation_prompt = True, use_image = True, ):
+def format_prompt(tokenizer, questions, answers = None,add_generation_prompt = True, use_image = True, ):
     """
     apply chat template to questions.
     return a list of prompt string
@@ -56,24 +56,29 @@ def format_prompt(tokenizer, questions, add_generation_prompt = True, use_image 
     batch_prompts = []
     for i in range(len(questions)):
         conversation = build_llava_chat_template(questions[i], use_image)
-        prompt = tokenizer.apply_chat_template(conversation, tokenize=False,add_generation_prompt=add_generation_prompt)    
+        prompt = tokenizer.apply_chat_template(conversation, tokenize=False,add_generation_prompt=add_generation_prompt)   
+        if answers is not None:
+            prompt = prompt + " " + answers[i].strip()
         batch_prompts.append(prompt)
     return batch_prompts
 
     
 class LlaVA(BaseModel):
-    def __init__(self, text_image_processor, generate_config,trainable='all',assistant_tag = None,to_device=True,*args, **kwargs):
+    def __init__(self, generate_config,trainable='all',assistant_tag = None,to_device=True,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.generate_config = generate_config
-        self.text_image_processor = text_image_processor
         self.trainable = trainable
         self.assistant_tag = assistant_tag
 
         self.load_model(self.device)
+        self.model.gradient_checkpointing_enable()
         print('Load Model Successfully.')
 
     def get_language_model(self):
         return self.model.language_model
+    
+    def set_language_model(self, model):
+        self.model.language_model = model
     
     def set_language_model(self, model):
         self.model.language_model = model
@@ -86,6 +91,9 @@ class LlaVA(BaseModel):
                 self.model = LlavaForConditionalGeneration.from_pretrained(self.model_path, torch_dtype = self.torch_dtype, device_map='cpu')
             elif device == 'cuda':
                 self.model = LlavaForConditionalGeneration.from_pretrained(self.model_path, torch_dtype = self.torch_dtype, device_map='cuda')
+            elif device == 'auto':
+                self.model = LlavaForConditionalGeneration.from_pretrained(self.model_path, torch_dtype = self.torch_dtype, device_map='auto')
+                self.device = self.model.device
             else:
                 raise ValueError("device should be 'cpu' or 'cuda'.")
         processor = AutoProcessor.from_pretrained(self.model_path)
@@ -107,16 +115,9 @@ class LlaVA(BaseModel):
         elif self.trainable == 'frozen':
             self.model.eval()
 
-    
-    def forward(self, inputs,output_hidden_states=False):
-        images = inputs['image']
-        questions = inputs['question']
-        answers = inputs['answer']
-        if output_hidden_states:
-            batch_prompts,images = self.text_image_processor(questions,images,self.processor.tokenizer)
-        else:
-            batch_prompts,images = self.text_image_processor(questions,images,self.processor.tokenizer,answers)
-        inputs = self.processor(images=images, text=batch_prompts, padding=True, return_tensors="pt").to(self.device)
+    def _forward(self,formatted_prompt, images=None, output_hidden_states=False):
+        inputs = self.processor(images=images, text=formatted_prompt, padding=True, return_tensors="pt").to(self.device)
+        # By default, the text following the assistant tag is treated as the target answer.
         label_ids = self.get_labels(inputs['input_ids'],substring = self.assistant_tag).to(self.device)
         outputs = self.model(
             **inputs,
@@ -128,15 +129,24 @@ class LlaVA(BaseModel):
             return outputs.hidden_states[-1]
         else:
             return outputs.loss
+        
+    def forward(self, inputs,use_image = True, output_hidden_states=False):
+        formatted_prompt, images = self.get_formated_prompt(inputs, use_image)
+        return self._forward(formatted_prompt, images=images, output_hidden_states=output_hidden_states)
+   
 
-    def generate(self,inputs, use_image = True):
+    def get_formated_prompt(self,inputs, use_image = True, ):
         questions = inputs['question']
+        if "answer" in inputs.keys():
+            answers = inputs['answer']
+        else:
+            answers = None
         if not isinstance(questions,list):
             questions = [questions]
         if use_image:
             assert 'image' in inputs.keys(), "Image is not provided in inputs."
             images = inputs['image'] 
-            if not isinstance(images,list):
+            if isinstance(images,str) or isinstance(images,Image.Image) :
                 images = [images]
             assert len(questions) == len(images), "The number of questions and images should be the same."
             if isinstance(images[0],str):
@@ -145,11 +155,16 @@ class LlaVA(BaseModel):
         else:
             images = None
 
-        batch_prompts = format_prompt(self.tokenizer,questions,add_generation_prompt=True,use_image=use_image)
-       
+        batch_prompts = format_prompt(self.tokenizer,questions,answers = answers ,add_generation_prompt=True,use_image=use_image)
+        return batch_prompts,images
+
+    def generate(self,inputs, use_image = True, **kwargs):  
+        formatted_prompt, images = self.get_formated_prompt(inputs, use_image)
+        return self.generate_text(formatted_prompt, images=images)
+    
+    def generate_text(self,formatted_prompt, images=None):
         responses = []
-        
-        inputs = self.processor(images=images, text=batch_prompts, padding=True, return_tensors="pt").to(self.device)
+        inputs = self.processor(images=images, text=formatted_prompt, padding=True, return_tensors="pt").to(self.device)
         generate_ids = self.model.generate(**inputs, generation_config = GenerationConfig(**self.generate_config))
 
         if not self.generate_config.return_full_text:
@@ -182,3 +197,4 @@ class LlaVA(BaseModel):
             return torch.tensor(labels)
         else:
             return labels
+    

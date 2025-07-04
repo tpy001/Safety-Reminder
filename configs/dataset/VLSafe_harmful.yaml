@@ -1,7 +1,7 @@
 dataset:
   _target_: src.dataset.VLSafe
   # data_path: data/VLSafe/VLSafe
-  data_path: data/VLSafe_sampled/VLSafe
+  data_path: data/VLSafe_harmful/VLSafe
   data_files: harmlessness_examine.jsonl  # test dataset
   # data_files: harmlessnss_alignment.jsonl  # train dataset
   split: train

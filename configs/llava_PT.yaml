@@ -1,0 +1,12 @@
+
+batch_size: 16
+seed: 0
+defaults:
+  - model: llava_7b_PT
+  - evaluator: LLamaGuard3  
+  # - evaluator: MDJudge  
+  # - dataset: FigStep
+  - dataset: VLSafe_harmful
+  # - dataset: VLSafe_normal
+  # - dataset: SPA_VL_test
+  - _self_

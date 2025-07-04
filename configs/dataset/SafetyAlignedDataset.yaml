@@ -1,0 +1,36 @@
+
+harmful_dataset:
+    _target_: src.dataset.SPA_VL
+    data_path: data/SPA_VL/
+    split: train
+    # split: test
+    question: question
+    answer: chosen
+    image_PATH: image_name
+    image: image
+    safe: false
+    # sample: 32
+    seed: 0
+
+
+normal_dataset:
+    _target_: src.dataset.VLSafe
+    # data_path: data/VLSafe/VLSafe
+    data_path: data/VLSafe_normal
+    data_files: helpful_sampled.jsonl  # test dataset
+    # data_files: harmlessnss_alignment.jsonl  # train dataset
+    split: train
+    question: query
+    answer: reference
+    image: image_id
+    COCO_img_path: data/VLSafe/images
+    safe: True
+    # sample: 300
+    seed: 0
+
+
+dataset:
+    _target_: src.dataset.SafetyAlignedDataset
+    harmful_data: ${harmful_dataset}
+    normal_data: ${normal_dataset}
+  

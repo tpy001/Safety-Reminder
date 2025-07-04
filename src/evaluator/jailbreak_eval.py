@@ -6,6 +6,7 @@ from abc import abstractmethod
 from .utils import AccuracyCalculator,JailbreakCalculator
 from transformers import AutoModelForCausalLM
 from loguru import logger
+import gc
 
 class JailbreakEvaluator():
     def __init__(self,*args, **kwargs):
@@ -23,6 +24,8 @@ class JailbreakEvaluator():
         calculator.calculate_accuracy()
         calculator.print_results()
         return safe
+    
+
 
 class RuleBasedEvaluator(JailbreakEvaluator):
     def __init__(self,*args, **kwargs):
@@ -181,6 +184,14 @@ class LLamaGuard3(JailbreakEvaluator):
 
         outputs = self.predict(formatted_prompts,self.batchsize)
         return self.post_process(outputs)
+    
+    def destroy(self):
+        if self.pipeline is not None:
+            del self.pipeline
+            self.pipeline = None
+        gc.collect()
+        torch.cuda.empty_cache()
+        
     
 
 evaluation_template = """

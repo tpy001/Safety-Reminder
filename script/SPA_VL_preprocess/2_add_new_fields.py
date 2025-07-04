@@ -60,9 +60,30 @@ def process_training_dataset(dataset, output_folder, meta_file_path="./data/SPA_
     new_datasest = new_datasest.add_column("class2", class2)
     new_datasest = new_datasest.add_column("class3", class3)
 
-    # Save the dataset as parquet file to the disk
-    output_parquet_path =  os.path.join(output_folder, "train_converted","data.parquet")
-    new_datasest.to_parquet(output_parquet_path)
+    # Save the train file to disk
+    train_dataset = new_datasest.remove_columns(['image'])
+    parquet_file = os.path.join(output_folder, "train_converted", "data.parquet")
+    train_dataset.to_parquet(parquet_file)
+
+    output_img_path = os.path.join(output_folder,"train_converted","images")
+    # Save the image to the disk
+    for item in tqdm(new_datasest, desc="Saving images"):
+        image = item['image']
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        image_name = item['image_name']
+        class1 = item["class1"]
+        class2 = item["class2"]
+        class3 = item["class3"]
+        sub_path = os.path.join(output_img_path,class1,class2,class3)
+        os.makedirs(sub_path, exist_ok=True)
+        image_path = os.path.join(sub_path, image_name)
+        image.save(image_path)
+
+
+
+  
+
 
 
 
@@ -130,7 +151,7 @@ def process_test_dataset(dataset,output_folder):
     harm_dataset.to_parquet(output_harm_parquet_path)
     helpful_dataset.to_parquet(output_help_parquet_path)
 
-debug()
+# debug()
 
 input_folder = "data/SPA_VL"
 # output_folder = "data/SPA_VL_converted"

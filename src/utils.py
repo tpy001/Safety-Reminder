@@ -1,4 +1,6 @@
 import json
+from loguru import logger
+
 
 def set_seed(seed): 
     import random
@@ -11,6 +13,22 @@ def set_seed(seed):
     # torch.backends.cudnn.deterministic = True
     #torch.backends.cudnn.benchmark = False
 
+def get_class_name(obj):
+    return obj.__class__.__name__  
+
+def print_trainable_parameters(model):
+    trainable_params = 0
+    all_params = 0
+
+    for name, param in model.named_parameters():
+        num_params = param.numel()  # 获取参数数量
+        if param.requires_grad:  # 只考虑可训练参数
+            trainable_params += num_params
+            logger.info(f"{name}: {param.shape} (Total: {num_params})")
+        all_params += num_params
+
+    logger.info(f"\nTotal Trainable Parameters: {trainable_params}")
+    logger.info(f"Total Parameters: {all_params}")
 
 def debug():
     import debugpy
@@ -79,3 +97,24 @@ def save_jailbreak_response(responses,data, safe = [],image_path = [],output_fil
 
     with open(output_file_path, 'w', encoding='utf-8') as f:
         json.dump(res, f, ensure_ascii=False, indent=4)
+
+
+
+def pretty_dict(data, indent_level=4):
+    indent = "    " * indent_level  # 设置缩进
+    if isinstance(data, dict):
+        formatted_dict = "{\n"
+        for key, value in data.items():
+            formatted_value = pretty_dict(value, indent_level + 1)  # 递归调用
+            formatted_dict += f"{indent}    {key}: {formatted_value},\n"
+        formatted_dict += f"{indent}}}"
+        return formatted_dict
+    elif isinstance(data, list):
+        formatted_list = "[\n"
+        for item in data:
+            formatted_item = pretty_dict(item, indent_level + 1)  # 递归调用
+            formatted_list += f"{indent}    {formatted_item},\n"
+        formatted_list += f"{indent}]"
+        return formatted_list
+    else:
+        return repr(data)  # 对于其他类型，直接返回其字符串表示

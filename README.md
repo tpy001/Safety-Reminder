@@ -15,3 +15,18 @@ download the images and question from https://github.com/ThuCCSLab/FigStep/tree/
 ```
     python script/generate.py --config_name llava_SPA_VL.yaml  --output_file  result.json
 ```
+
+#### 2. Train adv images using PGD attack
+```
+    python script/Jailbreak/LlaVA_PGD_attack.py
+```
+
+#### 3. PromptTuning
+Training
+```
+    python script/PromptTuning/train.py 
+```
+Testing
+```
+     python script/generate.py --config_name llava_PT.yaml  --output_file  result.json
+```

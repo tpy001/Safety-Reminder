@@ -4,7 +4,7 @@ class BaseModel(torch.nn.Module):
     def __init__(self,
                  model_path = "",
                  torch_dtype = 'float32',
-                 device = 'cuda',
+                 device = None,
                  tokenizer =None,
                  *args,**kwargs):
         super().__init__()

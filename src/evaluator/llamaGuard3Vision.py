@@ -62,7 +62,7 @@ class LlamaGuard3Vision(JailbreakEvaluator):
             batch_prompts = prompts[i:i + batchsize]
             
             with torch.no_grad():
-                inputs = self.processor(text=batch_prompts, images=images, return_tensors="pt").to(self.model.device)
+                inputs = self.processor(text=batch_prompts, images=images, return_tensors="pt",padding=True).to(self.model.device)
                 prompt_len = len(inputs['input_ids'][0])
 
                 output = self.model.generate(
@@ -72,7 +72,8 @@ class LlamaGuard3Vision(JailbreakEvaluator):
                 )
 
                 generated_tokens = output[:, prompt_len:]
-                responses.append(self.processor.decode(generated_tokens[0],skip_special_tokens=True).strip())
+                generated_text = self.processor.batch_decode(generated_tokens,skip_special_tokens=True)
+                responses.extend([ generated_text[i].strip() for i in range(len(generated_text))])
 
         return responses
     
@@ -104,6 +105,8 @@ class LlamaGuard3Vision(JailbreakEvaluator):
             images = data['image'] if "image" in data.keys() else data['image_path']
             if isinstance(images,str):
                 images = [ PIL_Image.open(images) ]
+            elif isinstance(images,list) and isinstance(images[0],str):
+                images = [ PIL_Image.open(image) for image in images ]
         
         if isinstance(questions,str):
             questions = [questions]
