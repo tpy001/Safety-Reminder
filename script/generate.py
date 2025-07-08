@@ -4,41 +4,12 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-from hydra.utils import instantiate
 import hydra
 from omegaconf import OmegaConf
-from hydra import initialize, compose
 import torch
 from src.utils import save_jailbreak_response,debug
 from tqdm import tqdm
-
-import argparse
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run inference with specific config.")
-    parser.add_argument(
-        "--config_dir",
-        type=str,
-        default="../configs/",
-        help="Path to the directory containing config files."
-    )
-
-    parser.add_argument(
-        "--config_name",
-        type=str,
-        default="llava_VLSafe.yaml",
-        help="Name of the configuration file to use."
-    )
-
-    parser.add_argument(
-        "--output_file",
-        type=str,
-        default="./response.json",
-        help="Path to save the output response."
-    )
-
-    return parser.parse_args()
-
+from hydra.utils import instantiate
 
 def generate_text(model, questions,images=None,use_image=False,batch_size=1):
     """
@@ -76,26 +47,29 @@ def generate_text(model, questions,images=None,use_image=False,batch_size=1):
         results.extend(generated_text)
     return results
 
-debug()
-if __name__ == "__main__":
-    from src.utils import set_seed
+from src.utils import set_seed
 
-    args = parse_args()
-    config_dir = args.config_dir
-    config_name = args.config_name
-    output_file = args.output_file
+@hydra.main(version_base=None,config_path="../configs/", config_name="test.yaml")  
+def main(cfg) -> None:  
+    is_debug = cfg.get("debug", False)
+    if is_debug:
+        debug()
 
-
-    with initialize(config_path=str(config_dir), version_base=None):
-        cfg = compose(config_name=config_name)
-        model = instantiate(cfg.model.model)
-        dataset = instantiate(cfg.dataset.dataset) 
-        evaluator = instantiate(cfg.evaluator.evaluator) 
-
-    seed = cfg.get("seed", 0)
     batch_size = cfg.get("batch_size", 1)
+    # 1. Set seed
+    seed = cfg.get("seed", 0)
     set_seed(seed)
 
+    # 2. Load model
+    model = instantiate(cfg.model)
+
+    # 3. Load dataset
+    dataset = instantiate(cfg.dataset)
+
+    # 4. Load evaluator
+    evaluator = instantiate(cfg.evaluator)
+
+    # 5. Generate text
     test_data = dataset[:]
     if isinstance(test_data['image'][0], str):
         image_path = test_data['image']
@@ -116,10 +90,18 @@ if __name__ == "__main__":
     data = {
         "question": test_data['question'],
         "ori_question": test_data['ori_question'],
-        "answer": test_data['answer'],
+        "chosen": test_data['chosen'],
         "category": test_data['category'],
     }
-    save_jailbreak_response(output_text, data, safe_pred, image_path = image_path,output_file_path=output_file)
+
+    output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    save_jailbreak_response(output_text, data, safe_pred, image_path = image_path,output_file_path=os.path.join(output_dir,"genereated_response.json"))
+
+
+
+if __name__ == "__main__":
+    main()
+   
 
 
 

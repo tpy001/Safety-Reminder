@@ -4,7 +4,7 @@ Unified Dataset Structure:
 {
     "ori_question": [],   # Original question
     "question": [],       # question may after rephrasing or reformulation
-    "answer": [],         # expected answer to the question
+    "chosen": [],         # expected chosen to the question
     "safe": [],           # Safety label (e.g., True for safe, False for unsafe)
     "image": [],          # Associated image
     "image_path": [],     # Associated image path
@@ -27,7 +27,7 @@ class BaseDataset():
             split='train',
             question = 'question',
             ori_question = None,
-            answer = 'answer',
+            chosen = 'chosen',
             safe = Union[str, bool],
             image = 'image',
             image_path = 'image_path',
@@ -46,7 +46,7 @@ class BaseDataset():
             question (str): Name of the question field in the raw data. Will be renamed to 'question'.
             ori_question (str): Name of the original question field. Will be renamed to 'ori_question'.
                                 If identical to `question`, it will be copied.
-            answer (str): Name of the answer field in the raw data. Will be renamed to 'answer'.
+            chosen (str): Name of the chosen field in the raw data. Will be renamed to 'chosen'.
             safe (str or bool): Name of the safety label column, or the value to assign if no column exists.
                                 Will be renamed to 'safe'.
             image (str): Name of the image column in the raw data. Will be renamed to 'image'.
@@ -70,7 +70,7 @@ class BaseDataset():
 
             # rename columns
             self.rename_column(question, 'question')
-            self.rename_column(answer, 'answer')
+            self.rename_column(chosen, 'chosen')
             if ori_question is None:
                 self.data = self.data.add_column("ori_question", self.data["question"])
             else:
@@ -85,8 +85,8 @@ class BaseDataset():
             self.rename_column(category,'category')
             if 'category' not in self.data.column_names:
                 self.data = self.data.add_column("category", ["all"] * len(self.data))
-            if "answer" not in self.data.column_names:
-                self.data = self.data.add_column("answer", [""] * len(self.data))
+            if "chosen" not in self.data.column_names:
+                self.data = self.data.add_column("chosen", [""] * len(self.data))
 
             # sample the dataset
             if sample > 0 and sample < len(self.data):
