@@ -20,20 +20,20 @@ class VQAModel(torch.nn.Module):
         self.torch_dtype = torch_dtype
         self.trainable = trainable
         self.generate_config = generate_config
-        self.model = self.load_model()
+        self.model = self.load_model(*args, **kwargs)
 
-    def load_model(self):
+    def load_model(self,*args, **kwargs):
         if self.device not in ['cpu', 'cuda', 'auto', None]:
             raise ValueError("device should be 'cpu', 'cuda', 'auto', or None'.")
 
         if self.device is None or self.device == 'auto':
             model = self.model_cls.from_pretrained(
-                self.model_path, torch_dtype=self.torch_dtype, device_map='auto'
+                self.model_path, torch_dtype=self.torch_dtype, device_map='auto',*args, **kwargs
             )
             self.device = model.device
         else:
             model = self.model_cls.from_pretrained(
-                self.model_path, torch_dtype=self.torch_dtype, device_map=self.device
+                self.model_path, torch_dtype=self.torch_dtype, device_map=self.device,*args, **kwargs
             )
 
         processor = AutoProcessor.from_pretrained(self.model_path)
@@ -69,7 +69,7 @@ class VQAModel(torch.nn.Module):
         else:
             return labels
     
-    def _forward(self, formatted_prompt, images=None, output_hidden_states=False):
+    def _forward(self, formatted_prompt, images=None, output_hidden_states=False, **kwargs):
         inputs = self.processor(images=images, text=formatted_prompt, padding=True, return_tensors="pt").to(self.device)
         label_ids = self.get_labels(inputs['input_ids'],substring = self.assistant_tag).to(self.device)
         max_seq_length = self.max_context_length
@@ -84,7 +84,8 @@ class VQAModel(torch.nn.Module):
             **inputs,
             return_dict=True,
             labels = label_ids,
-            output_hidden_states=output_hidden_states
+            output_hidden_states=output_hidden_states,
+            **kwargs
         )
         if output_hidden_states:
             return outputs.hidden_states
@@ -97,23 +98,23 @@ class VQAModel(torch.nn.Module):
         if use_image:
             assert "image" in inputs.keys(), "Image is not provided in inputs."
 
-    def forward(self,inputs,use_image=True,output_hidden_states=False):
+    def forward(self,inputs,use_image=True,output_hidden_states=False, **kwargs):
         self.check_inputs(inputs,use_image)
-        formatted_prompt = self.formatted_prompt(inputs,use_image)
-        return self._forward(formatted_prompt,images=inputs.get("image",None),output_hidden_states=output_hidden_states)
+        formatted_prompt,images = self.get_formatted_prompt(inputs,use_image)
+        return self._forward(formatted_prompt,images=images,output_hidden_states=output_hidden_states, **kwargs)
     
     def get_formatted_prompt(self, inputs,use_image=True):
         raise NotImplementedError("formatted_prompt method is not implemented.")
         
     def generate(self,inputs, use_image = True, **kwargs):  
         formatted_prompt, images = self.get_formatted_prompt(inputs, use_image)
-        return self.generate_text(formatted_prompt, images=images,**kwargs)
+        return self.generate_text(formatted_prompt, images=images, **kwargs)
     
 
-    def generate_text(self,formatted_prompt, images=None,return_full_text=False, **kwargs):
+    def generate_text(self,formatted_prompt, images=None,return_full_text=False,**kwargs):
         responses = []
         inputs = self.processor(images=images, text=formatted_prompt, padding=True, return_tensors="pt").to(self.device)
-        generate_ids = self.model.generate(**inputs, generation_config = GenerationConfig(**self.generate_config), **kwargs)
+        generate_ids = self.model.generate(**inputs, generation_config = GenerationConfig(**self.generate_config),**kwargs)
 
         if not return_full_text:
             length = inputs['input_ids'].shape[-1]

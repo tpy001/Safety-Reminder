@@ -1,6 +1,6 @@
 
 _target_: src.dataset.PGDAttackDataset
-adv_img: work_dirs/eps=64/PGD_llava_img2/adv_noise_2100.bmp
+adv_img_folder: data/PGD_attack/Llava/eps_64/
 text_dataset:
     _target_: src.dataset.BaseDataset # AdvBench
     data_path: data/AdvBench

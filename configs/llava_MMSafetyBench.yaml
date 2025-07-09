@@ -1,9 +1,0 @@
-
-batch_size: 16
-seed: 0
-defaults:
-  - model: llava_7b
-  - evaluator: LLamaGuard3  
-  # - evaluator: MDJudge  
-  - dataset: MMSafetyBench
-  - _self_
