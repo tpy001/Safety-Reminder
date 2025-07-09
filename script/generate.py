@@ -73,8 +73,10 @@ def main(cfg) -> None:
     test_data = dataset
     if isinstance(test_data['image'][0], str):
         image_path = test_data['image']
-    else:
+    elif "image_path" in test_data.keys():
         image_path = test_data['image_path']
+    else:
+        image_path = ""
     output_text = generate_text(
         model,
         test_data['question'],
