@@ -1,10 +1,13 @@
 from .base_dataset import BaseDataset
 class PGDAttackDataset(BaseDataset):
-    def __init__(self, adv_img,text_dataset,*args, **kwargs):
+    def __init__(self, adv_img,text_dataset,sample=-1,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.text_dataset = text_dataset
         self.adv_img = adv_img
         self.data = self.load_dataset()
+
+        if sample > 0 and sample < len(self.data):
+            self.data = self.sample(sample)
         
     
     def load_dataset(self):

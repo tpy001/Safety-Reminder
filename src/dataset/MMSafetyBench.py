@@ -43,7 +43,7 @@ class MMSafetyBench(BaseDataset):
                 data['id'].append(i)
 
         data['safe'] = [False] * len(data['question'])
-        data['answer'] = [""] * len(data['question'])
+        data['chosen'] = [""] * len(data['question'])
 
 
         self.data = Dataset.from_dict(data)

@@ -1,16 +1,15 @@
 
-dataset:
-    _target_: src.dataset.PGDAttackDataset
-    adv_img: work_dirs/eps=64/PGD_llava_img2/adv_noise_2100.bmp
-    text_dataset:
-        _target_: src.dataset.BaseDataset # AdvBench
-        data_path: data/AdvBench
-        data_files: test.csv
-        split: train
-        question: goal
-        answer: target
-        safe: false
-        # sample: 32
-        seed: seed
+_target_: src.dataset.PGDAttackDataset
+adv_img: work_dirs/eps=64/PGD_llava_img2/adv_noise_2100.bmp
+text_dataset:
+    _target_: src.dataset.BaseDataset # AdvBench
+    data_path: data/AdvBench
+    data_files: test.csv
+    split: train
+    question: goal
+    answer: target
+    safe: false
+    # sample: 32
+    seed: seed
 
     
