@@ -1,2 +1,4 @@
-from .llava import LlaVA
-from .prompt_tuning import PromptTuningLlava
+# from .prompt_tuning import PromptTuningLlava
+# from .SAPT import SAPTLlava
+from .base_model import VQAModel
+from .llava import VQALlaVA
