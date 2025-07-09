@@ -4,7 +4,8 @@ import os
 from os.path import join
 
 class SPA_VL(BaseDataset):
-    def __init__(self,*args,**kwargs):
+    def __init__(self,test_data_type="harm",*args,**kwargs):
+        self.test_data_type = test_data_type    
         super().__init__(*args,**kwargs)
         self.data = self.data.remove_columns(['category'])
         # The below line is too slow, comment this to speed up the loading process
@@ -17,7 +18,7 @@ class SPA_VL(BaseDataset):
 
         if self.split == 'train':
              self.data = self.data.map(
-                lambda x: {"image": os.path.join(self.data_path, "train_converted", "images", x["category"],x["image"])},
+                lambda x: {"image": os.path.join(self.data_path, "train_converted", "images", x["category"],x["image_name"])},
             )
              
         
@@ -28,9 +29,13 @@ class SPA_VL(BaseDataset):
                 data_files={"train": os.path.join(self.data_path, "train_converted", "SPA_VL_sampled.json")}
             )["train"]
         elif self.split == 'test':
+            if self.test_data_type == "harm":
+                file_name = "harm.parquet"
+            else:
+                file_name = "help.parquet"
             return huggingface_load_dataset(
                 "parquet",
-                data_files={"train": os.path.join(self.data_path, "test_converted", "harm.parquet")}
+                data_files={"train": os.path.join(self.data_path, "test_converted", file_name)}
             )["train"]
     
         elif self.split == 'validation':

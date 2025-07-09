@@ -70,7 +70,7 @@ def main(cfg) -> None:
     evaluator = instantiate(cfg.evaluator)
 
     # 5. Generate text
-    test_data = dataset[:]
+    test_data = dataset
     if isinstance(test_data['image'][0], str):
         image_path = test_data['image']
     else:

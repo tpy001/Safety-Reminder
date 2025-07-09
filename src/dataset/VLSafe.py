@@ -12,7 +12,7 @@ class VLSafe(BaseDataset):
             split='train',
             question = 'question',
             ori_question = None,
-            answer = 'answer',
+            chosen = 'answer',
             safe = Union[str, bool],
             image = 'image',
             image_path = 'image_path',
@@ -32,7 +32,7 @@ class VLSafe(BaseDataset):
 
         # rename columns
         self.rename_column(question, 'question')
-        self.rename_column(answer, 'answer')
+        self.rename_column(chosen, 'chosen')
 
         if 'question' not in self.data.column_names and 'interaction' in self.data.column_names:
             def extract_qa(example):
@@ -56,8 +56,8 @@ class VLSafe(BaseDataset):
         self.rename_column(category,'category')
         if 'category' not in self.data.column_names:
             self.data = self.data.add_column("category", ["all"] * len(self.data))
-        if "answer" not in self.data.column_names:
-            self.data = self.data.add_column("answer", [""] * len(self.data))
+        if "chosen" not in self.data.column_names:
+            self.data = self.data.add_column("chosen", [""] * len(self.data))
 
         # sample the dataset
         if sample > 0 and sample < len(self.data):

@@ -1,13 +1,12 @@
-dataset:
-  _target_: src.dataset.VLSafe
-  # data_path: data/VLSafe/VLSafe
-  data_path: data/VLSafe_normal
-  data_files: helpful_sampled.jsonl  # test dataset
-  # data_files: harmlessnss_alignment.jsonl  # train dataset
-  split: train
-  image: image_id
-  COCO_img_path: data/VLSafe/images
-  safe: True
-  # sample: 300
-  seed: 0
+_target_: src.dataset.VLSafe
+# data_path: data/VLSafe/VLSafe
+data_path: data/VLSafe_normal
+data_files: helpful_sampled.jsonl  # test dataset
+# data_files: harmlessnss_alignment.jsonl  # train dataset
+split: train
+image: image_id
+COCO_img_path: data/VLSafe/images
+safe: True
+# sample: 300
+seed: 0
 
