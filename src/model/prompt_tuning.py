@@ -50,7 +50,8 @@ class PromptTuningLlavaModel(LlavaForConditionalGeneration):
         num_logits_to_keep: int = 0,
         soft_prompt_id = None,
         soft_prompt_num = None,
-        soft_prompt_embedding = None
+        soft_prompt_embedding = None,
+        **kwargs,
     ):
 
         assert soft_prompt_id is not None
@@ -268,16 +269,19 @@ class PromptTuning(VQAModel):
             soft_prompt_embedding = self.prompt_embedding
         )
 
-    def generate(self,inputs, use_image = True):
+    def generate(self,inputs, use_image = True,return_full_text=False,**kwargs):
         batch_prompts, images = self.get_formatted_prompt(inputs, use_image)
         batch_prompts = [ self.add_soft_prompt(prompt,add_pos="first") for prompt in batch_prompts]
         return self.generate_text(
             batch_prompts, 
             images=images,
+            return_full_text=return_full_text,
             soft_prompt_id = self.soft_prompt_id,
             soft_prompt_num = self.soft_prompt_num,
-            soft_prompt_embedding = self.prompt_embedding
+            soft_prompt_embedding = self.prompt_embedding,
+            **kwargs
         )
+    
     
     def save_model(self,path):
         torch.save(self.prompt_embedding.state_dict(), path)

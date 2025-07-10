@@ -1,0 +1,25 @@
+_target_:  src.model.SAPTLlava
+pretrained_path: work_dirs/SAPT_len=4/prompt_embedding_iter_49.pth
+model_path: /data3/tangpeiyuan/LLM/weights/llava-1.5-7B/
+torch_dtype: float16
+max_context_length: 1024
+device: cuda
+trainable: frozen
+generate_config:
+    type: GenerationConfig
+    return_full_text: false
+    use_cache: true
+    bos_token_id: 1
+    do_sample: false
+    eos_token_id: 2
+    pad_token_id: 32001
+    # temperature: 0.6
+    # top_p: 0.9
+    max_new_tokens: 256
+
+peft_config:
+    num: 4
+    dim: 4096
+    prompt_text: <soft_prompt>
+    init_text: Refuse if partial output is unsafe; else, continue helpfully.
+
