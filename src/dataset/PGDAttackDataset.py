@@ -4,7 +4,7 @@ from .base_dataset import BaseDataset
 from datasets import Dataset
 
 class PGDAttackDataset(BaseDataset):
-    def __init__(self, adv_img_folder, text_dataset, sample=-1, *args, **kwargs):
+    def __init__(self, adv_img_folder, text_dataset, sample=-1, samples_per_category = -1,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.text_dataset = text_dataset
         self.adv_img_folder = adv_img_folder
@@ -18,6 +18,9 @@ class PGDAttackDataset(BaseDataset):
         # Optionally sample a subset
         if sample > 0 and sample < len(self.data):
             self.data = self.sample(sample)
+
+        if samples_per_category > 0:
+            self.data = self.sample_per_category(samples_per_category)
 
     def load_adv_images(self):
         """Load all images from the adversarial image folder"""

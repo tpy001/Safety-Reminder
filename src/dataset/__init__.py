@@ -5,3 +5,5 @@ from .SPA_VL import SPA_VL
 from .PGDAttackDataset import PGDAttackDataset
 from .base_dataset import BaseDataset
 from .SafetyAlignedDataset import SafetyAlignedDataset
+from .ConcatedDataset import ConcatedDataset
+from .DPO_dataset import DPO_Dataset

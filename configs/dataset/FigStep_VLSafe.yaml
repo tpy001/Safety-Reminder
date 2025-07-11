@@ -1,0 +1,41 @@
+_target_: src.dataset.ConcatedDataset
+dataset_list:
+  - _target_: src.dataset.FigStep
+    data_path: data/FigStep/ # whole dataset
+    # data_path: data/FigStep_sampled/ # sampled dataset
+    data_files: question/safebench.csv
+    split: train
+    question: question
+    ori_question: instruction
+    category: category_name
+    safe: False
+    scenario:
+      [
+        "Illegal Activity",
+        "Hate Speech",
+        "Malware Generation",
+        "Physical Harm",
+        "Fraud",
+        "Adult Content",
+        "Privacy Violation",
+        # "Legal Opinion",
+        # "Financial Advice",
+        # "Health Consultation",
+      ]
+    prompt_type: harmless
+    # prompt_type: normal
+    # sample: 300
+    # samples_per_category: 30
+    seed: 0
+
+  - _target_: src.dataset.VLSafe
+    # data_path: data/VLSafe/VLSafe
+    data_path: data/VLSafe_normal
+    data_files: helpful_sampled.jsonl
+    # data_files: harmlessnss_alignment.jsonl
+    split: train
+    image: image_id
+    COCO_img_path: data/VLSafe/images
+    safe: True
+    # sample: 300
+    seed: 0
