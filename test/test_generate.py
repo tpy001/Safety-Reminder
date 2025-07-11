@@ -17,7 +17,6 @@ from script.generate import generate_text
 class BaseTestModel:
     config_path = "configs/model/default.yaml"
     config = None
-    name = "model"
     model = None
 
     @classmethod
@@ -25,8 +24,7 @@ class BaseTestModel:
         # Load the config file
         set_seed(0)
         cls.config = OmegaConf.load(cls.config_path)
-        model_cfg = cls.config.get(cls.name,None)
-        cls.model = instantiate(model_cfg)
+        cls.model = instantiate(cls.config )
 
     def test_model_not_none(self):
         assert self.model is not None, "Model is None."

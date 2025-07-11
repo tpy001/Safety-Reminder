@@ -15,9 +15,13 @@ from script.generate import generate_text
 from src.utils import set_seed
 import torch
 
+debug()
 class BaseTestJailbreakLlaVA:
     config_dir = "../configs/"
-    config_name = ""
+    config_name = "test.yaml"
+    model_name = "llava_7b"
+    evaluator_name = "LLamaGuard3"  
+    dataset_name = None
     config = None
     model = None
     dataset = None
@@ -29,11 +33,15 @@ class BaseTestJailbreakLlaVA:
     @classmethod
     def setup_class(cls):
         set_seed(cls.seed)
+        assert cls.model_name is not None, "Model name is not specified."
+        assert cls.evaluator_name is not None, "Evaluator name is not specified."
+        assert cls.dataset_name is not None, "Dataset name is not specified."
+        
         with initialize(config_path=str(cls.config_dir), version_base=None):
-            cfg = compose(config_name=cls.config_name)
-            cls.model = instantiate(cfg.model.model)
-            cls.dataset = instantiate(cfg.dataset.dataset) 
-            cls.evaluator = instantiate(cfg.evaluator.evaluator) 
+            cfg = compose(config_name=cls.config_name, overrides=[f"dataset={cls.dataset_name}",f"model={cls.model_name}",f"evaluator={cls.evaluator_name}"])
+            cls.model = instantiate(cfg.model)
+            cls.dataset = instantiate(cfg.dataset) 
+            cls.evaluator = instantiate(cfg.evaluator) 
 
     @classmethod
     def teardown_class(cls):
@@ -66,14 +74,13 @@ class BaseTestJailbreakLlaVA:
 
 
 class TestLlavaFigStep(BaseTestJailbreakLlaVA):
-    config_name = "llava_FigStep"
+    dataset_name = "FigStep"
     expected_output =  ["false", "false", "false", "false"]
 
-    
 
    
 class TestLlavaMMSafetyBench(BaseTestJailbreakLlaVA):
-    config_name = "llava_MMSafetyBench"
+    dataset_name = "MMSafetyBench"
     expected_output =  ["false", "false", "false", "false"]
 
 
@@ -81,17 +88,17 @@ class TestLlavaMMSafetyBench(BaseTestJailbreakLlaVA):
    
 
 class TestLlavaVLSafe(BaseTestJailbreakLlaVA):
-    config_name = "llava_VLSafe"
+    dataset_name = "VLSafe_harmful"
     expected_output =  ['false', 'true', 'false', 'false']
 
 
 
 class TestSPA_VL(BaseTestJailbreakLlaVA):
-    config_name = "llava_SPA_VL.yaml"
+    dataset_name = "SPA_VL"
     expected_output =  ['true', 'true', 'false', 'true']
 
 class TestPGDAttack(BaseTestJailbreakLlaVA):
-    config_name = "llava_PGDAttackDataset.yaml"
+    dataset_name = "PGDAttackDataset"
     expected_output =  ['false', 'false', 'false', 'false']
 
 
