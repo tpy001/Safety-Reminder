@@ -1,0 +1,32 @@
+
+batch_size: 4
+seed: 0
+debug: False
+
+
+defaults:
+  - model: llava_7b_SAPT
+  - evaluator: LLamaGuard3  
+  - dataset@train_dataset: DPO_Dataset
+  - dataset@val_dataset: SPA_VL
+  - _self_
+
+val_dataset:
+  sample: 128
+     
+train_config:
+    train_batchsize: 4
+    val_batchsize: ${batch_size}
+    seed: ${seed}
+    epoch: 50
+    val_interval: 250
+    lr: 0.00001
+    save_interval: 500
+    save_path: ./work_dirs/
+    utility_weight: 1
+    optimizer: 
+        type: AdamW
+        lr: 0.0001
+        betas: [0.9, 0.999]
+        eps: 1e-08
+        weight_decay: 0.01

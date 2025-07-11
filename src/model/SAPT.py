@@ -514,7 +514,7 @@ class SAPTLlava(PromptTuning):
         elif self.trainable == 'frozen':
             self.model.eval()
 
-    def get_labels(self, prompts, return_tensor=True):
+    def get_labels(self, prompts, return_tensor=True,**kwargs):
         """
         Create labels tensor for loss calculation, masking tokens before the last occurrence 
         of the soft prompt token with -100.
@@ -554,18 +554,25 @@ class SAPTLlava(PromptTuning):
         else:
             return labels
 
-    # def forward(self, inputs,use_image=True,output_hidden_states=False):
-    #     batch_prompts_chosen, batch_prompts_rejected, images = self.get_formated_prompt(inputs, use_image,add_soft_prompt=True)
-    #     try:
-    #         chosen_loss = self._forward(batch_prompts_chosen, images=images,output_hidden_states=output_hidden_states)
-    #     except:
-    #         logger.info("Error in forward function of SAPT")
-    #         dummy_loss = torch.tensor(0.0, device=getattr(self, 'device', 'cpu'), requires_grad=True)
-    #         return dummy_loss.clone()
-    #     if output_hidden_states:
-    #         return chosen_loss, chosen_loss.hidden_states
-    #     else:
-    #         return chosen_loss
+    def forward(self, inputs,use_image=True,output_hidden_states=False):
+
+        batch_prompts_chosen, batch_prompts_rejected, images = self.get_formatted_prompt_train(inputs, use_image,add_soft_prompt=True)
+        try:
+            chosen_loss = self._forward(
+                batch_prompts_chosen, 
+                images=images,
+                output_hidden_states=output_hidden_states,
+                soft_prompt_id = self.soft_prompt_id,
+                soft_prompt_num = self.soft_prompt_num,
+                soft_prompt_embedding = self.prompt_embedding,)
+        except:
+            logger.info("Error in forward function of SAPT")
+            dummy_loss = torch.tensor(0.0, device=getattr(self, 'device', 'cpu'), requires_grad=True)
+            return dummy_loss.clone()
+        if output_hidden_states:
+            return chosen_loss, chosen_loss.hidden_states
+        else:
+            return chosen_loss
     
     def generate(self,inputs, use_image = True,return_full_text = False, **kwargs): 
         batch_prompts, images = self.get_formatted_prompt(inputs, use_image)
@@ -651,73 +658,72 @@ class SAPTLlava(PromptTuning):
         batch_prompts = format_prompt(self.tokenizer,questions,answers = answers ,add_generation_prompt=True,use_image=use_image)
         return batch_prompts,images
     
-    # def get_formatted_prompt(
-    #     self,
-    #     inputs: dict,
-    #     use_image: bool = True,
-    #     add_soft_prompt: bool = True,
-    # ):
-    #     """
-    #     Prepare formatted chosen and rejected inputs from a dictionary.
+    def get_formatted_prompt_train(
+        self,
+        inputs: dict,
+        use_image: bool = True,
+        add_soft_prompt: bool = True,
+    ):
+        """
+        Prepare formatted chosen and rejected inputs from a dictionary.
 
-    #     Args:
-    #         inputs (dict): Should contain the following keys:
-    #             - 'question': List[str]
-    #             - 'label': List[str] with values like "safe" or "harmful"
-    #             - 'chosen': List[str]
-    #             - 'rejected': List[str]
-    #             - 'image': Optional[List[Any]]
-    #         use_image (bool): Whether to use image input in formatting.
-    #         add_soft_prompt (bool): Whether to append soft prompts.
+        Args:
+            inputs (dict): Should contain the following keys:
+                - 'question': List[str]
+                - 'label': List[str] with values like "safe" or "harmful"
+                - 'chosen': List[str]
+                - 'rejected': List[str]
+                - 'image': Optional[List[Any]]
+            use_image (bool): Whether to use image input in formatting.
+            add_soft_prompt (bool): Whether to append soft prompts.
 
-    #     Returns:
-    #         Tuple[List[str], List[str], Optional[List[Any]]]:
-    #             - formatted_chosen: list of full input strings with preferred answers
-    #             - formatted_rejected: list of full input strings with non-preferred answers
-    #             - images: image input list duplicated if needed, or None
-    #     """
-    #     questions = inputs["question"]
-    #     safe_labels = inputs["safe"]
-    #     chosen_answers = inputs["chosen"]
-    #     rejected_answers = inputs["rejected"]
-    #     images = inputs.get("image", None)
+        Returns:
+            Tuple[List[str], List[str], Optional[List[Any]]]:
+                - formatted_chosen: list of full input strings with preferred answers
+                - formatted_rejected: list of full input strings with non-preferred answers
+                - images: image input list duplicated if needed, or None
+        """
+        questions = inputs["question"]
+        safe_labels = inputs["safe"]
+        chosen_answers = inputs["chosen"]
+        rejected_answers = inputs["rejected"]
+        images = inputs.get("image", None)
 
-    #     formatted_chosen = []
-    #     formatted_rejected = []
+        formatted_chosen = []
+        formatted_rejected = []
         
         
-    #     for i in range(len(questions)):
-    #         # Determine which is the preferred answer
-    #         if safe_labels[i]:
-    #             prefix,suffix = get_prefix(chosen_answers[i], return_suffix=True)
-    #         else:
-    #             prefix,suffix = get_prefix(rejected_answers[i], return_suffix=True)
+        for i in range(len(questions)):
+            # Determine which is the preferred answer
+            if safe_labels[i]:
+                prefix,suffix = get_prefix(chosen_answers[i], return_suffix=True)
+            else:
+                prefix,suffix = get_prefix(rejected_answers[i], return_suffix=True)
 
-    #         prompt_inputs = {
-    #             "question": inputs["question"][i],
-    #             "answer": prefix,
-    #             "image": inputs["image"][i],
-    #         }
-    #         formatted_prompt, _ = self.model.get_formated_prompt(prompt_inputs, use_image)
-    #         formatted_prompt = formatted_prompt[0]
-    #         if add_soft_prompt:
-    #             formatted_prompt = self.add_soft_prompt(formatted_prompt, add_pos="last") 
+            prompt_inputs = {
+                "question": inputs["question"][i],
+                "answer": prefix,
+                "image": inputs["image"][i],
+            }
+            formatted_prompt, _ = self.get_formatted_prompt(prompt_inputs, use_image)
+            formatted_prompt = formatted_prompt[0]
+            if add_soft_prompt:
+                formatted_prompt = self.add_soft_prompt(formatted_prompt, add_pos="last") 
 
-    #         if safe_labels[i]:
-    #             formatted_chosen.append(f"{formatted_prompt.strip()} {suffix.strip()}")
-    #             formatted_rejected.append(f"{formatted_prompt.strip()} {rejected_answers[i].strip()}")
-    #         else:
-    #             formatted_chosen.append(f"{formatted_prompt.strip()} {chosen_answers[i].strip()}")
-    #             formatted_rejected.append(f"{formatted_prompt.strip()} {suffix.strip()}")
+            if safe_labels[i]:
+                formatted_chosen.append(f"{formatted_prompt.strip()} {suffix.strip()}")
+                formatted_rejected.append(f"{formatted_prompt.strip()} {rejected_answers[i].strip()}")
+            else:
+                formatted_chosen.append(f"{formatted_prompt.strip()} {chosen_answers[i].strip()}")
+                formatted_rejected.append(f"{formatted_prompt.strip()} {suffix.strip()}")
            
-    #     if use_image:
-    #         assert 'image' in inputs.keys(), "Image is not provided in inputs."
-    #         images = inputs['image'] 
-    #         if isinstance(images,str) or isinstance(images,Image.Image) :
-    #             images = [images]
-    #         assert len(questions) == len(images), "The number of questions and images should be the same."
-    #         if isinstance(images[0],str):
-    #             images = [Image.open(image_path) for image_path in images]
-    #     # return formatted_chosen, formatted_rejected, images
-    #     return formatted_chosen, images
+        if use_image:
+            assert 'image' in inputs.keys(), "Image is not provided in inputs."
+            images = inputs['image'] 
+            if isinstance(images,str) or isinstance(images,Image.Image) :
+                images = [images]
+            assert len(questions) == len(images), "The number of questions and images should be the same."
+            if isinstance(images[0],str):
+                images = [Image.open(image_path) for image_path in images]
+        return formatted_chosen, formatted_rejected, images
 

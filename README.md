@@ -59,7 +59,7 @@ Extract hidden states from the model
 #### 5. Run SAPT
 Training:
 ```
-     python script/SAPT/train.py  --config_name llava_SAPT_training.yaml 
+     python script/SAPT/train.py  debug=True
 ```
 Testing:
 ```

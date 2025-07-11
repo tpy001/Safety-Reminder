@@ -38,7 +38,7 @@ class VLSafe(BaseDataset):
             def extract_qa(example):
                 question = example['interaction'][0]['user']
                 answer = example['interaction'][1]['model']
-                return {"question": question, "answer": answer}
+                return {"question": question, "chosen": answer}
 
             self.data = self.data.map(extract_qa)
        
