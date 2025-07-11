@@ -5,6 +5,7 @@ from transformers.generation import GenerationConfig
 class VQAModel(torch.nn.Module):
     model_cls = PreTrainedModel
     assistant_tag = "ASSISTANT:"
+    chat_template = None
     def __init__(self, model_path, torch_dtype=torch.float16, device='auto', max_context_length=1024,trainable = "frozen",generate_config = {},*args, **kwargs):
         """
         Args:
@@ -43,6 +44,10 @@ class VQAModel(torch.nn.Module):
 
         self.processor = processor
         self.tokenizer = processor.tokenizer
+
+        if self.tokenizer.chat_template is None:
+            assert self.chat_template is not None, "chat_template is not provided in tokenizer."
+            self.tokenizer.chat_template = self.chat_template
         return model
 
     def train(self,mode=True):
@@ -60,7 +65,8 @@ class VQAModel(torch.nn.Module):
         # substring = 'ASSISTANT:'
         substring_ids = self.processor.tokenizer.encode(substring)[1:]
         for prompt in prompts:
-            prompt = prompt.tolist()
+            if not isinstance(prompt,list):
+                prompt = prompt.tolist()
             position = find_sublist_position(prompt, substring_ids)
             label  = [-100] * (position) + prompt[position:]
             labels.append(label)

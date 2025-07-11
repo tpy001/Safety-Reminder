@@ -1,6 +1,5 @@
-evaluator:
-    _target_: src.evaluator.MDJudge
-    model_path: /data3/tangpeiyuan/LLM/weights/MD-judge-7b/
+_target_: src.evaluator.MDJudge
+model_path: weights/MD-judge-7b/
 
 
 

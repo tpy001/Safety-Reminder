@@ -18,7 +18,6 @@ class TestPTLlavaModel:
     config_path = "configs/model/llava_7b_PT.yaml"
 
     config = None
-    data_list = None
     model = None
     pretrained_soft_prompt_path = "work_dirs/PT_len=4/prompt_embedding_iter_19.pth"
     
@@ -33,7 +32,6 @@ class TestPTLlavaModel:
 
     @classmethod
     def teardown_class(cls):
-        del cls.data_list
         del cls.model
         torch.cuda.empty_cache()  
 

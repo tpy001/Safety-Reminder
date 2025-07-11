@@ -232,7 +232,7 @@ class PromptTuning(VQAModel):
     def load_pretrained(self,pretrained_path=None):        
         if pretrained_path is not None:
             try:
-                self.prompt_embedding.load_state_dict(torch.load(pretrained_path))
+                self.prompt_embedding.load_state_dict(torch.load(pretrained_path,weights_only=True))
                 logger.info(f"Loading pretrained prompt embedding from {pretrained_path}...")
             except:
                 logger.warning(f"Failed to load pretrained prompt embedding from {pretrained_path}...")

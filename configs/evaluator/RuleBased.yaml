@@ -1,2 +1,1 @@
-evaluator:
-    _target_: src.evaluator.RuleBasedEvaluator
+_target_: src.evaluator.RuleBasedEvaluator

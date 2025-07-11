@@ -4,6 +4,7 @@ from .base_model import VQAModel
 
 
 SYSTEM_PROMPT = "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions."
+LlaVA_chat_template = "{% for message in messages %}{% if message['role'] != 'system' %}{{ message['role'].upper() + ': '}}{% endif %}{# Render all images first #}{% for content in message['content'] | selectattr('type', 'equalto', 'image') %}{{ '<image>\n' }}{% endfor %}{# Render all text next #}{% if message['role'] != 'assistant' %}{% for content in message['content'] | selectattr('type', 'equalto', 'text') %}{{ content['text'] + ' '}}{% endfor %}{% else %}{% for content in message['content'] | selectattr('type', 'equalto', 'text') %}{% generation %}{{ content['text'] + ' '}}{% endgeneration %}{% endfor %}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'ASSISTANT:' }}{% endif %}"
 
 def build_llava_chat_template(question: str, use_image: bool = True) -> list:
     if use_image:
@@ -65,6 +66,7 @@ def format_prompt(tokenizer, questions, answers = [],add_generation_prompt = Tru
 class VQALlaVA(VQAModel):
     model_cls = LlavaForConditionalGeneration
     assistant_tag = "ASSISTANT:"
+    chat_template = LlaVA_chat_template
 
     def get_formatted_prompt(self,inputs, use_image = True, ):
         questions = inputs['question']

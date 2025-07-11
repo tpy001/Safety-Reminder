@@ -1,3 +1,2 @@
-evaluator:
-    _target_: src.evaluator.LLamaGuard3
-    model_path: /data3/tangpeiyuan/LLM/weights/Llama3-Guard-8b/
+_target_: src.evaluator.LLamaGuard3
+model_path: weights/Llama3-Guard-8b/

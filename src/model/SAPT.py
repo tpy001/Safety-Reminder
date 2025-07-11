@@ -582,6 +582,10 @@ class SAPTLlava(PromptTuning):
         
         is_safe = self.model.is_safe
         inputs["chosen"] = []
+        if isinstance(inputs["question"],str):
+            inputs["question"] = [inputs["question"]]
+        if isinstance(inputs["image"],str) or isinstance(inputs["image"],Image.Image):
+            inputs["image"] = [inputs["image"]]
         for i in range(len(is_safe)):
             if not is_safe[i]:
                 inputs["chosen"].append(self.add_soft_prompt(first_generated_text[i],add_pos="last"))
