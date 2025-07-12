@@ -75,16 +75,110 @@ class VQAModel(torch.nn.Module):
         else:
             return labels
     
+    def truncate_around_image_token(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        label_ids: torch.Tensor,
+        max_length: int,
+        image_token_id: int
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Truncates input sequences while preserving all image tokens.
+        Tries front, back, and center truncation strategies in that order.
+        
+        Args:
+            input_ids: Input tensor of shape (batch_size, seq_length)
+            attention_mask: Attention mask tensor of shape (batch_size, seq_length)
+            label_ids: Label tensor of shape (batch_size, seq_length)
+            max_length: Maximum allowed sequence length
+            image_token_id: ID of the image token to preserve
+        
+        Returns:
+            Tuple of truncated (input_ids, attention_mask, label_ids)
+        
+        Raises:
+            ValueError: If no image tokens found or max_length is too small
+        """
+        batch_size, current_length = input_ids.shape
+        
+        # Return unchanged if sequence is short enough
+        if current_length <= max_length:
+            return input_ids, attention_mask, label_ids
+
+        # Count image tokens
+        image_mask = input_ids[0] == image_token_id
+        num_images = image_mask.sum().item()
+        
+        if num_images == 0:
+            raise ValueError("No image tokens detected in input_ids")
+        
+        if max_length < num_images:
+            raise ValueError(f"max_length ({max_length}) too small to accommodate {num_images} image tokens")
+
+        text_budget = max_length - num_images
+        if text_budget <= 0:
+            raise ValueError(f"max_length ({max_length}) too small to include any text tokens")
+
+        def has_all_images(slice_indices: slice) -> bool:
+            """Check if slice contains all image tokens."""
+            return (input_ids[0, slice_indices] == image_token_id).sum().item() == num_images
+
+        # Try 1: Front truncation
+        front_slice = slice(0, max_length)
+        if has_all_images(front_slice):
+            return (
+                input_ids[:, front_slice],
+                attention_mask[:, front_slice],
+                label_ids[:, front_slice]
+            )
+
+        # Try 2: Back truncation
+        back_slice = slice(-max_length, None)
+        if has_all_images(back_slice):
+            return (
+                input_ids[:, back_slice],
+                attention_mask[:, back_slice],
+                label_ids[:, back_slice]
+            )
+
+        # Try 3: Center truncation
+        # Keep all image tokens and distribute remaining budget around them
+        image_indices = torch.where(image_mask)[0]
+        leftmost_image = image_indices[0].item()
+        rightmost_image = image_indices[-1].item()
+        
+        # Calculate available space for text on both sides
+        text_space = text_budget // 2
+        left_bound = max(0, leftmost_image - text_space)
+        right_bound = min(current_length, rightmost_image + text_space + 1)
+        
+        # Adjust if we couldn't get enough space on right
+        if right_bound - left_bound < max_length:
+            left_bound = max(0, right_bound - max_length)
+        
+        center_slice = slice(left_bound, right_bound)
+        
+        return (
+            input_ids[:, center_slice],
+            attention_mask[:, center_slice],
+            label_ids[:, center_slice]
+        )
+
     def _forward(self, formatted_prompt, images=None, output_hidden_states=False, **kwargs):
         inputs = self.processor(images=images, text=formatted_prompt, padding=True, return_tensors="pt").to(self.device)
         label_ids = self.get_labels(inputs['input_ids'],substring = self.assistant_tag).to(self.device)
-        max_seq_length = self.max_context_length
 
-        current_seq_length = inputs['input_ids'].shape[1]
-        if current_seq_length > max_seq_length:
-            inputs['input_ids'] = inputs['input_ids'][:, :max_seq_length]
-            inputs['attention_mask'] = inputs['attention_mask'][:, :max_seq_length]
-            label_ids = label_ids[:, :max_seq_length]
+        image_token_id = getattr(self.processor.tokenizer, "image_token_id", None)
+        
+        inputs['input_ids'], inputs['attention_mask'], label_ids = self.truncate_around_image_token(
+            input_ids=inputs['input_ids'],
+            attention_mask=inputs['attention_mask'],
+            label_ids=label_ids,
+            max_length=self.max_context_length,
+            image_token_id=image_token_id,
+        )
+
 
         outputs = self.model(
             **inputs,
@@ -98,14 +192,17 @@ class VQAModel(torch.nn.Module):
         else:
             return outputs.loss
 
-    def check_inputs(self,inputs,use_image=True):
+    def check_inputs(self,inputs,use_image=True,use_answer=True):
         assert "question" in inputs.keys(), "Question is not provided in inputs."
-        assert "chosen" in inputs.keys(), "Chosen answer is not provided in inputs."
+        if use_answer:
+            assert "chosen" in inputs.keys(), "Chosen answer is not provided in inputs."
         if use_image:
             assert "image" in inputs.keys(), "Image is not provided in inputs."
 
-    def forward(self,inputs,use_image=True,output_hidden_states=False, **kwargs):
-        self.check_inputs(inputs,use_image)
+    def forward(self,inputs,use_image=True,output_hidden_states=False, use_answer = True, **kwargs):
+        self.check_inputs(inputs,use_image,use_answer)
+        if not use_answer:
+            inputs.pop("chosen")
         formatted_prompt,images = self.get_formatted_prompt(inputs,use_image)
         return self._forward(formatted_prompt,images=images,output_hidden_states=output_hidden_states, **kwargs)
     
