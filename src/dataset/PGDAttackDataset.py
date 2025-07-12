@@ -4,6 +4,7 @@ from .base_dataset import BaseDataset
 from datasets import Dataset
 
 class PGDAttackDataset(BaseDataset):
+    name = "PGDAttackDataset"
     def __init__(self, adv_img_folder, text_dataset, sample=-1, samples_per_category = -1,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.text_dataset = text_dataset

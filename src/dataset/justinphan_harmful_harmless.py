@@ -1,5 +1,8 @@
 from .base_dataset import BaseDataset
+import numpy as np
+from datasets import Dataset
 class justinphan_harmful_harmless(BaseDataset):
+    name = "justinphan_harmful_harmless"
     def __init__(self, paired=False,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.paired = paired

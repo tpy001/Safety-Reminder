@@ -3,6 +3,7 @@ import numpy as np
 from src.utils import set_seed
 
 class MME(BaseDataset):
+    name = "MME"
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

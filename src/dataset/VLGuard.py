@@ -1,6 +1,7 @@
 from .base_dataset import BaseDataset
 from datasets import load_dataset
 class VLGuard(BaseDataset):
+    name = "VLGuard"
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

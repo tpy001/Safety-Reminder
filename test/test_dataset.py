@@ -147,6 +147,14 @@ class TestSPA_VL(BaseTestDataset):
         data_list = instantiate(_config)
         assert len(data_list) == self.test_size, f"Expected {self.test_size} samples, but got {len(data_list)} instead."
 
+class TestVLSafeNormalDataset(BaseTestDataset):
+    config_path = "configs/dataset/VLSafe_normal.yaml"
+    data_size = 1000
+
+
+class TestVLSafeHarmfulDataset(BaseTestDataset):
+    config_path = "configs/dataset/VLSafe_harmful.yaml"
+    data_size = 300
 
 class TestPGDAttackDataset(BaseTestDataset):
     config_path = "configs/dataset/PGDAttackDataset.yaml"

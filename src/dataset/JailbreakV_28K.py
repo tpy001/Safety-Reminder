@@ -1,5 +1,6 @@
 from  .base_dataset import BaseDataset
 class JailbreakV_28K(BaseDataset):
+    name = "JailbreakV_28K"
     def __init__(self,scenario = [], *args,**kwargs):
         super().__init__(*args,**kwargs)   
 

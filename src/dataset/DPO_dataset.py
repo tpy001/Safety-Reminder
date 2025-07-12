@@ -6,6 +6,7 @@ from loguru import logger
 from datasets import Dataset, concatenate_datasets
 
 class DPO_Dataset(BaseDataset):
+    name = "DPO_Dataset"
     def __init__(self, safety_data, utility_data, seed=0,   sample = -1 ,samples_per_category = -1,*args, **kwargs):
         self.seed = seed
         self.safety_data = safety_data.data

@@ -7,6 +7,7 @@ from .base_dataset import BaseDataset
 from datasets import load_dataset
 
 class FigStep(BaseDataset):
+    name = "FigStep"
     def __init__(self, scenario=['Illegal Activitiy'],prompt_type = 'harmless', *args, **kwargs):
         self.scenario_list = scenario
         self.prompt_type = prompt_type

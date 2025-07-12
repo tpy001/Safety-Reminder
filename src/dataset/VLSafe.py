@@ -5,6 +5,7 @@ from typing import Union
 
 
 class VLSafe(BaseDataset):
+    name = "VLSafe"
     def __init__(
             self,
             data_path = None, 

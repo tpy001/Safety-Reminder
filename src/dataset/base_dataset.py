@@ -21,6 +21,7 @@ import pandas as pd
 
 
 class BaseDataset():
+    name = "BaseDataset"
     def __init__(self, 
             data_path = None, 
             data_files = None,

@@ -5,6 +5,7 @@ from datasets import Dataset
 import os
 
 class MMSafetyBench(BaseDataset):
+    name = "MMSafetyBench"
     def __init__(self, image_type='SD+TYPO',scenario=['01-Illegal_Activitiy'],sample:int = -1 ,*args, **kwargs):
         super().__init__()
         self.data_path = kwargs["data_path"]

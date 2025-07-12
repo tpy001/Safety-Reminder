@@ -1,6 +1,7 @@
-_target_: src.dataset.BaseDataset
-data_path: data/MM-Vet/data
-split: test
+_target_: src.dataset.MMVet
+data_path: data/MM-Vet/
+data_files: data.json
+split: train
 question: question
 chosen: answer
 image: image

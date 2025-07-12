@@ -11,6 +11,7 @@ from datasets import concatenate_datasets
 
 
 class SafetyAlignedDataset(BaseDataset):
+    name = "SafetyAlignedDataset"
     def __init__(self,harmful_data,normal_data, sample = -1 ,samples_per_category = -1,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.harmful_data = harmful_data

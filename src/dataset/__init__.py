@@ -7,3 +7,4 @@ from .base_dataset import BaseDataset
 from .SafetyAlignedDataset import SafetyAlignedDataset
 from .ConcatedDataset import ConcatedDataset
 from .DPO_dataset import DPO_Dataset
+from .MMVet import MMVet

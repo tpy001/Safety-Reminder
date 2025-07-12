@@ -1,5 +1,6 @@
 from .base_dataset import BaseDataset
 class MMBench(BaseDataset):
+    name = "MMBench"
     def __init__(self,instruct = '', *args, **kwargs):
         super().__init__(*args, **kwargs)
        
