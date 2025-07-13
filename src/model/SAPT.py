@@ -556,8 +556,11 @@ class SAPTLlava(PromptTuning):
             return labels
 
     def forward(self, inputs,use_image=True,output_hidden_states=False):
-
-        batch_prompts_chosen, batch_prompts_rejected, images = self.get_formatted_prompt_train(inputs, use_image,add_soft_prompt=True)
+        if output_hidden_states:
+            raise NotImplementedError("output_hidden_states is not implemented for SAPT-Llava")
+            batch_prompts_chosen, images = self.get_formatted_prompt(inputs, use_image)
+        else:
+            batch_prompts_chosen, batch_prompts_rejected, images = self.get_formatted_prompt_train(inputs, use_image,add_soft_prompt=True)
         try:
             chosen_loss = self._forward(
                 batch_prompts_chosen, 
@@ -702,7 +705,7 @@ class SAPTLlava(PromptTuning):
 
             prompt_inputs = {
                 "question": inputs["question"][i],
-                "answer": prefix,
+                "chosen": prefix,
                 "image": inputs["image"][i],
             }
             formatted_prompt, _ = self.get_formatted_prompt(prompt_inputs, use_image)

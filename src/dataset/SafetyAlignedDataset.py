@@ -32,7 +32,7 @@ class SafetyAlignedDataset(BaseDataset):
         if 'chosen' not in harmful_ds.column_names:
             logger.warning("No answer column in harmful data. Using default refusal answer.")
             refusal_hint = "I'm sorry, but I can't assist with that question as it raises safety and ethical concerns."
-            harmful_ds = harmful_ds.add_column("answer", [refusal_hint] * len(harmful_ds))
+            harmful_ds = harmful_ds.add_column("chosen", [refusal_hint] * len(harmful_ds))
 
         # Remove irrelevant columns from both datasets
         # For example, keep only 'question', 'answer', 'image', 'ori_question', 'safe'

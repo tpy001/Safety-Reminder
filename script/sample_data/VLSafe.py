@@ -36,7 +36,7 @@ dataset_config = {
     "data_files": "harmlessness_examine.jsonl",  # test dataset
     "split": "train",
     "question": "query",
-    "answer": "reference",
+    "chosen": "reference",
     "image": "image_id",
     "COCO_img_path": "data/VLSafe/images",
     "safe": False,
