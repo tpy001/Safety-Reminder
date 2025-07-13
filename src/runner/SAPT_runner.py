@@ -98,6 +98,7 @@ class SAPT_Runner:
 
         assert epoch is not None, "Please specify the number of epoch in the training_cfg"
 
+        step = 0
         for i in range(epoch):
             with tqdm(total=len(self.train_loader), desc="Epoch %d" % (i)) as pbar:
                 self.model.zero_grad()
@@ -113,8 +114,8 @@ class SAPT_Runner:
                         loss=loss.item(),
                     )
                     
-                    # if iter % val_interval == 0 and iter > 0:
-                    if iter % val_interval == 0:
+                    if step % val_interval == 0 and step > 0:
+                    # if step % val_interval == 0:
                         # valiadation on training set
                         print("Iter: %d, Loss: %f" % (i, loss.item()))
                         generated_text = []
@@ -144,8 +145,10 @@ class SAPT_Runner:
                         torch.cuda.empty_cache()
                         self.model.train(True)
                     
-                    if iter % save_interval == 0:
+                    if step % save_interval == 0:
                         self.model.save_model(os.path.join(save_path, 'prompt_embedding_iter_{}.pth'.format(i)))
+
+                    step += 4
 
     def generate(self):
         responses= []

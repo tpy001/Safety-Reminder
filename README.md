@@ -53,7 +53,7 @@ Testing
 #### 4. Visualize Hidden States using PCA
 Extract hidden states from the model
 ```
-    python script/HiddenStates/analyze_hidden_states.py --config_name llava_FigStep_VLSafe.yaml 
+    python script/HiddenStates/analyze_hidden_states.py --config-name hidden_states.yaml 
 ```
 
 #### 5. Run SAPT
@@ -65,3 +65,5 @@ Testing:
 ```
     python script/generate.py model=llava_7b_SAPT dataset=VLSafe_harmful +dataset.sample=4 debug=True
 ```
+
+

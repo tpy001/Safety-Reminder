@@ -9,7 +9,7 @@ class VLGuard(BaseDataset):
         dataset = load_dataset(self.data_path, data_files = self.split+".json",split='train')
         data = {
             "question":[],
-            "answer":[],
+            "chosen":[],
             "safe": [],
             "image":[],
         }

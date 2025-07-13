@@ -7,7 +7,7 @@ class MultiDataset(BaseDataset):
 
         self.data = {
             "question": [],
-            "answer": [],
+            "chosen": [],
             "safe": [],
             "ori_question": [],
             "image": [],
