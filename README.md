@@ -14,18 +14,59 @@ You can git clone https://github.com/ThuCCSLab/FigStep.git and then move the ima
 
 The final folder structure should be:
 ```
-data/
-└── FigStep/
-    ├── images/
-    │   ├── FigStep-Pro/
-    │   ├── SafeBench/
-    │   └── SafeBench-Tiny/
-    └── questions/
-        ├── benign_sentences_without_harmful_phase.csv
-        ├── SafeBench-Tiny.csv
-        └── safebench.csv
+├── data/
+    ├── FigStep/
+        ├── images/
+        │   ├── FigStep-Pro/
+        │   ├── SafeBench/
+        │   └── SafeBench-Tiny/
+        └── questions/
+            ├── benign_sentences_without_harmful_phase.csv
+            ├── SafeBench-Tiny.csv
+            └── safebench.csv
 ```
 
+#### 2. MMSafetyBench
+Please see https://github.com/isXinLiu/MM-SafetyBench
+
+The final folder structure should be:
+
+```
+├── data    
+    ├── MMSafetyBench/
+        ├── processed_questions
+            ├── 01-Illegal_Activitiy.json
+            ├── 02-HateSpeech.json
+            ├── 03-Malware_Generation.json
+            └── ... # {scenario}.json
+        ├── imgs
+            ├── 01-Illegal_Activitiy
+                ├── SD
+                    ├── 0.jpg
+                    ├── 1.jpg
+                    ├── 2.jpg
+                    └── ... # {question_id}.jpg
+                ├── SD_TYPO
+                    ├── 0.jpg
+                    ├── 1.jpg
+                    ├── 2.jpg
+                    └── ... # {question_id}.jpg
+                ├── TYPO
+                    ├── 0.jpg
+                    ├── 1.jpg
+                    ├── 2.jpg
+                    └── ... # {question_id}.jpg
+            ├── 02-HateSpeech
+            ├── 03-Malware_Generation
+            └── ...
+```
+
+#### 3. VLSafe
+Please download from our google drive.
+
+
+## Judge Model Download
+Download the Llama-Guard3 from the 
 
 ## Scripts
 #### 1. Generate the text and evaluate the safety
@@ -63,5 +104,5 @@ Training:
 ```
 Testing:
 ```
-    python script/generate.py model=llava_7b_SAPT dataset=VLSafe_harmful +dataset.sample=4 debug=True
+    python script/generate.py model=llava_7b_SAPT dataset=FigStep +dataset.sample=4 debug=True
 ```

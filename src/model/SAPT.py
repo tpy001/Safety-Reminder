@@ -16,7 +16,7 @@ from transformers.generation.utils import (
     GenerateDecoderOnlyOutput
 )
 from transformers.cache_utils import *
-from .llava import VQALlaVA,format_prompt
+from .llava import VQALlaVA,format_prompt,LlaVA_chat_template
 from transformers.models.llava.modeling_llava import LlavaCausalLMOutputWithPast
 
 
@@ -497,6 +497,7 @@ class SAPTLlavaModel(LlavaForConditionalGeneration):
 class SAPTLlava(PromptTuning):
     model_cls = SAPTLlavaModel
     assistant_tag = "ASSISTANT:"
+    chat_template = LlaVA_chat_template
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -566,7 +567,6 @@ class SAPTLlava(PromptTuning):
                 soft_prompt_num = self.soft_prompt_num,
                 soft_prompt_embedding = self.prompt_embedding,)
         except:
-            logger.info("Error in forward function of SAPT")
             dummy_loss = torch.tensor(0.0, device=getattr(self, 'device', 'cpu'), requires_grad=True)
             return dummy_loss.clone()
         if output_hidden_states:
