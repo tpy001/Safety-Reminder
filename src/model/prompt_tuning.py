@@ -249,9 +249,9 @@ class PromptTuning(VQAModel):
         insert_pos = add_pos
         soft_prompt = " ".join([self.soft_prompt_text]*self.soft_prompt_num)
         if insert_pos == 'first':
-            prompt = soft_prompt +" " + prompt
+            prompt = soft_prompt.rstrip()() +" " + prompt.lstrip()
         elif insert_pos == 'last':
-            prompt = prompt + " " + soft_prompt
+            prompt = prompt.rstrip() + " " + soft_prompt.lstrip()
         else:
             raise ValueError("insert_pos must be 'first' or 'last'")
         return prompt
