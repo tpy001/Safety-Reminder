@@ -33,6 +33,7 @@ data/
    python script/generate.py dataset=FigStep
    #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4
    #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4 debug=True
+   # python script/generate.py --multirun  model=llava_self_reminder dataset=MMSafetyBench,SPA_VL   # Multi Run
 ```
 
 #### 2. Train adv images using PGD attack
@@ -64,6 +65,13 @@ Training:
 Testing:
 ```
     python script/generate.py model=llava_7b_SAPT dataset=VLSafe_harmful +dataset.sample=4 debug=True
+```
+
+
+#### 6. Test self reminder method
+``` 
+Testing
+    python script/generate.py model=llava_self_reminder dataset=FigStep +dataset.sample=4 debug=True
 ```
 
 
