@@ -15,6 +15,12 @@ from tqdm import tqdm
 from datasets import load_dataset
 from hydra.utils import instantiate
 import logging
+from transformers.image_utils import ImageInput,VideoInput,PILImageResampling,ChannelDimension,valid_images,validate_preprocess_arguments
+from typing import Dict,Optional,Union,List 
+from torch import TensorType
+from transformers.models.qwen2_vl.image_processing_qwen2_vl import make_batched_images, make_batched_videos
+from torchvision.transforms import Normalize
+
 
 # Disable tokenizer parallelism to avoid issues with multiprocessing
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -95,57 +101,158 @@ def set_preprocess_function(model, use_original_preprocessing: bool):
     return model
 
 
+def _preprocess(
+        self,
+        images: Union[ImageInput, VideoInput],
+        do_resize: bool = None,
+        resample = None,
+        do_rescale: bool = None,
+        rescale_factor: float = None,
+        do_normalize: bool = None,
+        image_mean: Optional[Union[float, List[float]]] = None,
+        image_std: Optional[Union[float, List[float]]] = None,
+        do_convert_rgb: bool = None,
+        data_format: Optional[ChannelDimension] = ChannelDimension.FIRST,
+        input_data_format: Optional[Union[str, ChannelDimension]] = None,
+    ):
+    
+        normalize = Normalize(mean=image_mean, std=image_std)
+
+        # for i in range(images.shape[0]):
+        #     images[i] = normalize(images[i])
+
+        image = normalize(images[0]).unsqueeze(0)
+        patches = image.repeat(self.temporal_patch_size, 1, 1, 1)
+        resized_height,resized_width = patches.shape[2],patches.shape[3]
+        channel = patches.shape[1]
+        grid_t = patches.shape[0] // self.temporal_patch_size
+        grid_h, grid_w = resized_height // self.patch_size, resized_width // self.patch_size
+        patches = patches.reshape(
+            grid_t,
+            self.temporal_patch_size,
+            channel,
+            grid_h // self.merge_size,
+            self.merge_size,
+            self.patch_size,
+            grid_w // self.merge_size,
+            self.merge_size,
+            self.patch_size,
+        )
+        patches = patches.permute(0, 3, 6, 4, 7, 2, 1, 5, 8)
+        flatten_patches = patches.reshape(
+            grid_t * grid_h * grid_w, channel * self.temporal_patch_size * self.patch_size * self.patch_size
+        )
+
+        return flatten_patches, (grid_t, grid_h, grid_w)
 
 def custom_preprocess(
-    self,
-    images,
-    do_resize = None,
-    size = None,
-    do_rescale = None,
-    rescale_factor = None,
-    do_normalize = None,
-    image_mean = None,
-    image_std = None,
-    return_tensors = None,
-    **kwargs,
-):
-    """
-    Modifies the image preprocessing implementation of the LlavaProcessor class (`from transformers.llava.processing_llava import LlavaProcessor`).
-    This code is compatible with Transformers version 4.46.0.
-    """
+        self,
+        images: ImageInput,
+        videos: VideoInput = None,
+        do_resize: bool = None,
+        size: Dict[str, int] = None,
+        resample: PILImageResampling = None,
+        do_rescale: bool = None,
+        rescale_factor: float = None,
+        do_normalize: bool = None,
+        image_mean: Optional[Union[float, List[float]]] = None,
+        image_std: Optional[Union[float, List[float]]] = None,
+        do_convert_rgb: bool = None,
+        return_tensors: Optional[Union[str, TensorType]] = None,
+        data_format: Optional[ChannelDimension] = ChannelDimension.FIRST,
+        input_data_format: Optional[Union[str, ChannelDimension]] = None,
+    ):
+        """
+        Args:
+            images (`ImageInput`):
+                Image to preprocess. Expects a single or batch of images with pixel values ranging from 0 to 255. If
+                passing in images with pixel values between 0 and 1, set `do_rescale=False`.
+            videos (`VideoInput`):
+                Video to preprocess. Expects a single or batch of videos with pixel values ranging from 0 to 255. If
+                passing in videos with pixel values between 0 and 1, set `do_rescale=False`.
+            do_resize (`bool`, *optional*, defaults to `self.do_resize`):
+                Whether to resize the image.
+            size (`Dict[str, int]`, *optional*, defaults to `self.size`):
+                Size of the image after resizing. Shortest edge of the image is resized to size["shortest_edge"], with
+                the longest edge resized to keep the input aspect ratio.
+            resample (`int`, *optional*, defaults to `self.resample`):
+                Resampling filter to use if resizing the image. This can be one of the enum `PILImageResampling`. Only
+                has an effect if `do_resize` is set to `True`.
+            do_rescale (`bool`, *optional*, defaults to `self.do_rescale`):
+                Whether to rescale the image.
+            rescale_factor (`float`, *optional*, defaults to `self.rescale_factor`):
+                Rescale factor to rescale the image by if `do_rescale` is set to `True`.
+            do_normalize (`bool`, *optional*, defaults to `self.do_normalize`):
+                Whether to normalize the image.
+            image_mean (`float` or `List[float]`, *optional*, defaults to `self.image_mean`):
+                Image mean to use for normalization. Only has an effect if `do_normalize` is set to `True`.
+            image_std (`float` or `List[float]`, *optional*, defaults to `self.image_std`):
+                Image standard deviation to use for normalization. Only has an effect if `do_normalize` is set to
+                `True`.
+            do_convert_rgb (`bool`, *optional*, defaults to `self.do_convert_rgb`):
+                Whether to convert the image to RGB.
+            return_tensors (`str` or `TensorType`, *optional*):
+                The type of tensors to return. Can be one of:
+                - Unset: Return a list of `np.ndarray`.
+                - `TensorType.TENSORFLOW` or `'tf'`: Return a batch of type `tf.Tensor`.
+                - `TensorType.PYTORCH` or `'pt'`: Return a batch of type `torch.Tensor`.
+                - `TensorType.NUMPY` or `'np'`: Return a batch of type `np.ndarray`.
+                - `TensorType.JAX` or `'jax'`: Return a batch of type `jax.numpy.ndarray`.
+            data_format (`ChannelDimension` or `str`, *optional*, defaults to `ChannelDimension.FIRST`):
+                The channel dimension format for the output image. Can be one of:
+                - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
+                - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
+                - Unset: Use the channel dimension format of the input image.
+            input_data_format (`ChannelDimension` or `str`, *optional*):
+                The channel dimension format for the input image. If unset, the channel dimension format is inferred
+                from the input image. Can be one of:
+                - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
+                - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
+                - `"none"` or `ChannelDimension.NONE`: image in (height, width) format.
 
-    size_ = (336,336)
+        """
+        do_resize = do_resize if do_resize is not None else self.do_resize
+        size = size if size is not None else self.size
+        resample = resample if resample is not None else self.resample
+        do_rescale = do_rescale if do_rescale is not None else self.do_rescale
+        rescale_factor = rescale_factor if rescale_factor is not None else self.rescale_factor
+        do_normalize = do_normalize if do_normalize is not None else self.do_normalize
+        image_mean = image_mean if image_mean is not None else self.image_mean
+        image_std = image_std if image_std is not None else self.image_std
+        do_convert_rgb = do_convert_rgb if do_convert_rgb is not None else self.do_convert_rgb
 
-    do_resize = do_resize if do_resize is not None else self.do_resize
-    size = size if size is not None else self.size
-    do_rescale = do_rescale if do_rescale is not None else self.do_rescale
-    rescale_factor = rescale_factor if rescale_factor is not None else self.rescale_factor
-    do_normalize = do_normalize if do_normalize is not None else self.do_normalize
-    image_mean = image_mean if image_mean is not None else self.image_mean
-    image_std = image_std if image_std is not None else self.image_std
+        batch_size = images.shape[0]
+        validate_preprocess_arguments(
+            rescale_factor=rescale_factor,
+            do_normalize=do_normalize,
+            image_mean=image_mean,
+            image_std=image_std,
+            do_resize=do_resize,
+            size=size,
+            resample=resample,
+        )
 
-    if isinstance(images, PIL.Image.Image):
-            images = torch.tensor(np.array(images).transpose(2, 0, 1)).float() / 255.0
+        if images is not None:
+            patches, image_grid_thw = _preprocess(
+                self,
+                images,
+                do_resize=do_resize,
+                resample=resample,
+                do_rescale=do_rescale,
+                rescale_factor=rescale_factor,
+                do_normalize=do_normalize,
+                image_mean=image_mean,
+                image_std=image_std,
+                data_format=data_format,
+                do_convert_rgb=do_convert_rgb,
+                input_data_format=input_data_format,
+            )
+            patches = patches.repeat(batch_size,1,1).flatten(0,1)
+        new_img_grid = np.expand_dims(np.array(image_grid_thw), axis=0)
+        image_grid_expanded = np.repeat(new_img_grid, repeats=batch_size, axis=0)
+        data = {"pixel_values": patches, "image_grid_thw": image_grid_expanded}
+        return BatchFeature(data=data, tensor_type=return_tensors)
 
-    if images.ndim == 3:
-        adv_image = images.unsqueeze(0)
-    else:
-        adv_image = images
-    
-    if do_resize:
-        adv_image = F.interpolate(adv_image, size=size_, mode='bicubic', align_corners=False)
-
-    if do_rescale:
-        if torch.max(adv_image) <= 1:
-            raise ValueError("Input image has been normalized to be in the range [0, 1]")
-        else:
-            adv_image = adv_image * rescale_factor
-
-    if do_normalize:
-        adv_image = transforms.Normalize(mean=image_mean, std=image_std)(adv_image)
-
-    data = {"pixel_values": adv_image}
-    return BatchFeature(data=data, tensor_type=return_tensors)
 
 # --- Define PGD Adversarial Attack Runner ---
 class PGDJailbreakRunner:
@@ -220,7 +327,9 @@ class PGDJailbreakRunner:
                 adv_img = adv_img.clamp(0, 1).repeat(self.batch_size, 1, 1, 1)
 
                 inputs["image"] = adv_img
-                loss = self.model(inputs)
+
+                self.model.add_eos_token = False
+                loss = self.model(inputs) # Delete the eos token at the end of the answer.
                 loss.backward()
 
                 # PGD update
@@ -315,24 +424,31 @@ class PGDJailbreakRunner:
         return adv_noise                
     
 if __name__ == "__main__":
-    debug()
+    # debug()
     # --- Load model configuration ---
-    model_path = "weights/llava-1.5-7B/"
+    model_path = "weights/QWen2-VL-7B/"
     model_config = {
-        "_target_": "src.model.VQALlaVA",
+        "_target_": "src.model.VQAQwen2VL",
         "model_path": model_path,
-        "torch_dtype": "float16",
+        "torch_dtype": "bfloat16",
         "max_context_length": 1024,
-        "device": "cuda",
+        "device": "auto",
         "trainable": "frozen",
+        "min_pixels": 12544, # 16 * 28 * 28  
+        "max_pixels": 200704, # 256 * 28 * 28
         "generate_config": {
             "type": "GenerationConfig",
-            "return_full_text": False,
+            "bos_token_id": 151643,
+            "pad_token_id": 151643,
+            "eos_token_id": [
+                151645,
+                151643
+            ],
+            "return_full_tex": False,
             "use_cache": True,
-            "bos_token_id": 1,
             "do_sample": False,
-            "eos_token_id": 2,
-            "pad_token_id": 32001,
+            # temperature: 0.6
+            # top_p: 0.9
             "max_new_tokens": 256,
             "diversity_threshold": 0.1
         }
@@ -340,9 +456,9 @@ if __name__ == "__main__":
 
     train_config = {
         "batch_size": 4,
-        "work_dirs": "work_dirs/PGD_llava",  # Directory to save adversarial images (default: BMP format)
+        "work_dirs": "work_dirs/PGD_Qwen2VL",  # Directory to save adversarial images (default: BMP format)
         "epsilon": 64 / 255,  # Maximum allowable pixel perturbation (L∞ bound)
-        "clean_image_path": "data/clean_imgs/clean_image5.jpg",  # Path to the clean input image
+        "clean_image_path": "data/clean_imgs/clean_image1.jpg",  # Path to the clean input image
         "step_size": 1 / 255,  # Step size (learning rate) for PGD updates
         "iteration": 3000,  # Total number of PGD iterations
         "val_interval": 300,  # Interval (in steps) to evaluate and save the current adversarial image

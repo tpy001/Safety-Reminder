@@ -45,7 +45,7 @@ def build_llava_chat_template(question: str, use_image: bool = True) -> list:
         }
     ]
 
-def format_prompt(tokenizer, questions, answers = [],add_generation_prompt = True, use_image = True, ):
+def format_prompt(tokenizer, questions, answers = None,add_generation_prompt = True, use_image = True, ):
     """
     apply chat template to questions.
     return a list of prompt string
@@ -56,7 +56,7 @@ def format_prompt(tokenizer, questions, answers = [],add_generation_prompt = Tru
     for i in range(len(questions)):
         conversation = build_llava_chat_template(questions[i], use_image)
         prompt = tokenizer.apply_chat_template(conversation, tokenize=False,add_generation_prompt=add_generation_prompt)   
-        if len(answers) > 0 and answers[0] is not None:
+        if answers is not None and len(answers) > 0 and answers[0] is not None:
             prompt = prompt + " " + answers[i].strip()
         batch_prompts.append(prompt)
     return batch_prompts
@@ -76,7 +76,7 @@ class VQALlaVA(VQAModel):
             answers = None
         if not isinstance(questions,list):
             questions = [questions]
-        if not isinstance(answers,list):
+        if answers is not None and not isinstance(answers,list):
             answers = [answers]
         if use_image:
             assert 'image' in inputs.keys(), "Image is not provided in inputs."

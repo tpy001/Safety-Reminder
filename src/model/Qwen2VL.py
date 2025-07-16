@@ -2,6 +2,7 @@ from transformers import Qwen2VLForConditionalGeneration
 from PIL import Image
 from .base_model import VQAModel
 from transformers import AutoProcessor, PreTrainedModel
+import torch
 
 
 
@@ -60,7 +61,7 @@ def build_qwen2_chat_template(question: str, answer = None,use_image: bool = Tru
     return conversation
     
 
-def format_prompt(tokenizer, questions, answers = [],add_generation_prompt = True, use_image = True, ):
+def format_prompt(tokenizer, questions, answers = None,add_generation_prompt = True, use_image = True, ):
     """
     apply chat template to questions.
     return a list of prompt string
@@ -69,7 +70,7 @@ def format_prompt(tokenizer, questions, answers = [],add_generation_prompt = Tru
         questions = [questions]
     batch_prompts = []
     for i in range(len(questions)):
-        if len(answers) > 0 and answers[0] is not None:
+        if answers is not None and len(answers) > 0 and answers[0] is not None:
             conversation = build_qwen2_chat_template(questions[i], answers[i],use_image)
         else:
             conversation = build_qwen2_chat_template(questions[i],use_image=use_image)
@@ -83,6 +84,7 @@ class VQAQwen2VL(VQAModel):
     model_cls = Qwen2VLForConditionalGeneration
     assistant_tag = 'assistant\n'
     chat_template = Qwen2_chat_template
+    add_eos_token = True
 
     def __init__(self, min_pixels = None,max_pixels = None,*args, **kwargs):
         self.min_pixels = min_pixels
@@ -90,7 +92,7 @@ class VQAQwen2VL(VQAModel):
         super().__init__(*args, **kwargs)
         print('Load Model Successfully.')
 
-    def get_formatted_prompt(self,inputs, use_image = True, ):
+    def get_formatted_prompt(self,inputs, use_image = True):
         questions = inputs['question']
         if "chosen" in inputs.keys():
             answers = inputs['chosen']
@@ -98,7 +100,7 @@ class VQAQwen2VL(VQAModel):
             answers = None
         if not isinstance(questions,list):
             questions = [questions]
-        if not isinstance(answers,list):
+        if answers is not None and not isinstance(answers,list):
             answers = [answers]
         if use_image:
             assert 'image' in inputs.keys(), "Image is not provided in inputs."
@@ -112,7 +114,13 @@ class VQAQwen2VL(VQAModel):
         else:
             images = None
 
-        batch_prompts = format_prompt(self.tokenizer,questions,answers = answers ,add_generation_prompt=True,use_image=use_image)
+        if answers is None:
+            batch_prompts = format_prompt(self.tokenizer,questions,answers = None ,add_generation_prompt=True,use_image=use_image)
+        elif self.add_eos_token:
+            batch_prompts = format_prompt(self.tokenizer,questions,answers = answers,add_generation_prompt=False,use_image=use_image)
+        elif not self.add_eos_token:
+            batch_prompts = format_prompt(self.tokenizer,questions,answers = None ,add_generation_prompt=True,use_image=use_image)
+            batch_prompts = [ batch_prompts[i]  + answers[i].strip() for i in range(len(batch_prompts))]
         return batch_prompts,images
     
     def load_model(self, *args, **kwargs):
@@ -159,6 +167,29 @@ class VQAQwen2VL(VQAModel):
             self.model.language_model.train()
         elif self.trainable == 'frozen':
             self.model.eval()
+
+
+    def get_labels(self,prompts,substring,return_tensor=True):
+        def find_sublist_position(main_list, sub_list):
+            for i in range(len(main_list) - len(sub_list) + 1):
+                # 检查从当前位置i开始的子列表是否与sub_list相同
+                if main_list[i:i+len(sub_list)] == sub_list:
+                    return i + len(sub_list)   # 返回子列表结束位置的下一个位置
+            raise ValueError("子列表未在主列表中找到。")
+        
+        labels = []
+        # substring = 'ASSISTANT:'
+        # substring_ids = self.processor.tokenizer.encode(substring)[1:]
+        substring_ids = self.processor.tokenizer.encode(substring) # Here is the difference
+        for prompt in prompts:
+            prompt = prompt.tolist()
+            position = find_sublist_position(prompt, substring_ids)
+            label  = [-100] * (position) + prompt[position:]
+            labels.append(label)
+        if return_tensor:
+            return torch.tensor(labels)
+        else:
+            return labels
 
 
     

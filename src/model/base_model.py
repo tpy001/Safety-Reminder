@@ -203,10 +203,10 @@ class VQAModel(torch.nn.Module):
         self.check_inputs(inputs,use_image,use_answer)
         if not use_answer:
             inputs.pop("chosen")
-        formatted_prompt,images = self.get_formatted_prompt(inputs,use_image)
+        formatted_prompt,images = self.get_formatted_prompt(inputs,use_image, **kwargs)
         return self._forward(formatted_prompt,images=images,output_hidden_states=output_hidden_states, **kwargs)
     
-    def get_formatted_prompt(self, inputs,use_image=True):
+    def get_formatted_prompt(self, inputs,use_image=True, **kwargs):
         raise NotImplementedError("formatted_prompt method is not implemented.")
         
     def generate(self,inputs, use_image = True, **kwargs):  
