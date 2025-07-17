@@ -1,5 +1,12 @@
 # SafeVLM
-SafeVLM
+**The Safety Reminder: A Soft Prompt to Reactivate Delayed Safety Awareness in Vision-Language Models**
+
+*Peiyuan Tang\*,Haojie Xin\*,Xiaodong Zhang,Jun Sun,Qin Xia and Zijiang Yang*, arXiv 2025
+
+<a href='https://arxiv.org/pdf/2506.15734' style='padding-left: 0.5rem;'>
+    <img src='https://img.shields.io/badge/arXiv-PDF-red?style=flat&logo=arXiv&logoColor=wihte' alt='arXiv PDF'>
+</a>
+</p>
 
 ## Installation
 conda create -n safeVLM python=3.10.14
