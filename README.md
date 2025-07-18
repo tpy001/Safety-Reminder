@@ -1,11 +1,23 @@
-# SafeVLM
-SafeVLM
+# SafetyReminder
+
+This is the official repository of 
+
+**The Safety Reminder: A Soft Prompt to Reactivate Delayed Safety Awareness in Vision-Language Models**
+
+*Peiyuan Tang\*,Haojie Xin\*,Xiaodong Zhang,Jun Sun,Qin Xia and Zijiang Yang*, arXiv 2025
+
+<a href='https://arxiv.org/pdf/2506.15734' style='padding-left: 0.5rem;'>
+    <img src='https://img.shields.io/badge/arXiv-PDF-red?style=flat&logo=arXiv&logoColor=wihte' alt='arXiv PDF'>
+</a>
+
 
 ## Installation
+```
 conda create -n safeVLM python=3.10.14
 conda activate safeVLM
 pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements.txt
+```
 
 ## Datasets Download
 #### 1. FigStep
@@ -33,7 +45,7 @@ data/
    python script/generate.py dataset=FigStep
    #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4
    #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4 debug=True
-   # python script/generate.py --multirun  model=llava_self_reminder dataset=MMSafetyBench,SPA_VL   # Multi Run
+   #  python script/generate.py --multirun  model=llava_self_reminder dataset=MMSafetyBench,SPA_VL   # Multi Run
 ```
 
 #### 2. Train adv images using PGD attack
@@ -72,7 +84,6 @@ Testing:
 
 #### 6. Test self reminder method
 ``` 
-Testing
     python script/generate.py model=llava_self_reminder dataset=FigStep +dataset.sample=4 debug=True
 ```
 
