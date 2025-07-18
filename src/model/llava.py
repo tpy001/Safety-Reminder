@@ -68,6 +68,9 @@ class VQALlaVA(VQAModel):
     assistant_tag = "ASSISTANT:"
     chat_template = LlaVA_chat_template
 
+    def get_language_model(self):
+        return self.model.language_model
+    
     def get_formatted_prompt(self,inputs, use_image = True, ):
         questions = inputs['question']
         if "chosen" in inputs.keys():

@@ -61,6 +61,8 @@ Extract hidden states from the model
 Training:
 ```
      python script/SAPT/train.py  debug=True
+     # python script/SAPT/train.py model=Qwen2VL_SAPT debug=True
+
 ```
 Testing:
 ```

@@ -170,6 +170,10 @@ class VQAModel(torch.nn.Module):
         label_ids = self.get_labels(inputs['input_ids'],substring = self.assistant_tag).to(self.device)
 
         image_token_id = getattr(self.processor.tokenizer, "image_token_id", None)
+        if image_token_id is None:
+            image_token_id = self.model.config.image_token_id
+        else:
+            raise ValueError("Image token not found in tokenizer.")
         
         inputs['input_ids'], inputs['attention_mask'], label_ids = self.truncate_around_image_token(
             input_ids=inputs['input_ids'],
