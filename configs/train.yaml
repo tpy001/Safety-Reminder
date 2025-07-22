@@ -1,14 +1,16 @@
 
-batch_size: 4
+batch_size: 8
 seed: 0
 debug: False
 
 
 defaults:
   - model: llava_7b_SAPT
-  - evaluator: LLamaGuard3  
+  - evaluator@jailbreak_evaluator: LLamaGuard3  
+  - evaluator@normal_evaluator: RuleBased  
   - dataset@train_dataset: DPO_Dataset
-  - dataset@val_dataset: SPA_VL
+  - dataset@val_harmful_dataset: FigStep
+  - dataset@val_normal_dataset: MMVet
   - _self_
 
 val_dataset:
@@ -19,7 +21,7 @@ train_config:
     val_batchsize: ${batch_size}
     seed: ${seed}
     epoch: 50
-    val_interval: 250
+    val_interval: 2000
     lr: 0.00001
     save_interval: 500
     save_path: ./work_dirs/

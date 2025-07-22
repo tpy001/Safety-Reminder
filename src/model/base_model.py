@@ -171,7 +171,10 @@ class VQAModel(torch.nn.Module):
 
         image_token_id = getattr(self.processor.tokenizer, "image_token_id", None)
         if image_token_id is None:
-            image_token_id = self.model.config.image_token_id
+            try:
+                image_token_id = self.model.config.image_token_index
+            except:
+                image_token_id = self.model.config.image_token_id
         else:
             raise ValueError("Image token not found in tokenizer.")
         
@@ -205,7 +208,7 @@ class VQAModel(torch.nn.Module):
 
     def forward(self,inputs,use_image=True,output_hidden_states=False, use_answer = True, **kwargs):
         self.check_inputs(inputs,use_image,use_answer)
-        if not use_answer:
+        if not use_answer and "chosen" in inputs.keys():
             inputs.pop("chosen")
         formatted_prompt,images = self.get_formatted_prompt(inputs,use_image, **kwargs)
         return self._forward(formatted_prompt,images=images,output_hidden_states=output_hidden_states, **kwargs)

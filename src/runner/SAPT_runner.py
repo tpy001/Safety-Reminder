@@ -10,7 +10,15 @@ import hydra
 
 
 class SAPT_Runner:
-    def __init__(self, model,training_set,val_dataset,evaluator,train_config):
+    def __init__(self, 
+                 model,
+                 training_set,
+                 val_harmful_dataset,
+                 val_normal_dataset,
+                 jailbreak_evaluator,
+                 normal_evaluator,
+                 train_config
+                 ):
         """
             Initializes the runner.
             Args:
@@ -20,8 +28,11 @@ class SAPT_Runner:
         self.train_config = train_config
         self.model = model
         self.training_set = training_set
-        self.val_dataset = val_dataset
-        self.evaluator = evaluator
+        self.val_harmful_dataset = val_harmful_dataset
+        self.val_normal_dataset = val_normal_dataset
+
+        self.jailbreak_evaluator = jailbreak_evaluator
+        self.normal_evaluator = normal_evaluator
 
         # Step1: Set seed
         self.seed = self.train_config.get('seed') or 0
@@ -41,12 +52,12 @@ class SAPT_Runner:
         )
 
 
-        self.val_dataloader = torch.utils.data.DataLoader(
-            self.val_dataset,
-            batch_size=self.val_batchsize,
-            shuffle=False,
-            num_workers=2,
-        )
+        # self.val_dataloader = torch.utils.data.DataLoader(
+        #     self.val_dataset,
+        #     batch_size=self.val_batchsize,
+        #     shuffle=False,
+        #     num_workers=2,
+        # )
 
         # Step4: Build optimizer
         self.optim_cfg = OmegaConf.to_container(self.train_config.get('optimizer'), resolve=True) 
@@ -58,7 +69,7 @@ class SAPT_Runner:
                 raise ValueError("Unsupported optimizer type: %s" % optimzer_cls)
 
         print("Training dataset size: %d" % len(self.training_set))
-        print("Val dataset size: %d" % len(self.val_dataset))
+        print("Val dataset size: %d" % len(self.val_harmful_dataset))
         
         # 4. build lr_schedule
         lr_schedule = self.train_config.get('lr_schedule')
@@ -90,15 +101,12 @@ class SAPT_Runner:
         self.model.train(True)  # Set model to training mode
 
         epoch = self.train_config.get('epoch')
-        val_interval = self.train_config.get('val_interval', 1)
-        save_interval = self.train_config.get('save_interval', 1)
 
         output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
         save_path = output_dir
 
         assert epoch is not None, "Please specify the number of epoch in the training_cfg"
 
-        step = 0
         for i in range(epoch):
             with tqdm(total=len(self.train_loader), desc="Epoch %d" % (i)) as pbar:
                 self.model.zero_grad()
@@ -114,41 +122,64 @@ class SAPT_Runner:
                         loss=loss.item(),
                     )
                     
-                    if step % val_interval == 0 and step > 0:
-                    # if step % val_interval == 0:
-                        # valiadation on training set
-                        print("Iter: %d, Loss: %f" % (i, loss.item()))
-                        generated_text = []
-                        
-                        torch.cuda.empty_cache()
-                        self.model.eval()  # Set model to evaluation mode
-                        with torch.no_grad():
-                            for k in range(0, len(self.val_dataset), self.val_batchsize):
-                                inputs = self.val_dataset[k:k + self.val_batchsize]
-                                inputs.pop("chosen")
-                                res = self.model.generate(inputs)
-                                generated_text.extend(res)
+                # valiadation on training set
+                print("Iter: %d, Loss: %f" % (i, loss.item()))
+                generated_text = []
+                
+                # validation on harmful dataset
+                torch.cuda.empty_cache()
+                self.model.eval()  # Set model to evaluation mode
+                with torch.no_grad():
+                    for k in range(0, len(self.val_harmful_dataset), self.val_batchsize):
+                        inputs = self.val_harmful_dataset[k:k + self.val_batchsize]
+                        inputs.pop("chosen")
+                        res = self.model.generate(inputs)
+                        generated_text.extend(res)
 
-                        for j in range(4):
-                            print("Question %d: %s" % (j,batch_inputs['question'][j]))
-                            print("chosen %d: %s" % (j,batch_inputs['chosen'][j]))
-                            print("rejected %d: %s" % (j,batch_inputs['rejected'][j]))
-                            print("Generated text %d: %s" % (j,generated_text[j]))
-                        torch.cuda.empty_cache()
+                for j in range(4):
+                    print("Question %d: %s" % (j,self.val_harmful_dataset['question'][j]))
+                    print("chosen %d: %s" % (j,self.val_harmful_dataset['chosen'][j]))
+                    if "rejected" in self.val_harmful_dataset:
+                        print("rejected %d: %s" % (j,self.val_harmful_dataset['rejected'][j]))
+                    print("Generated text %d: %s" % (j,generated_text[j]))
+                torch.cuda.empty_cache()
 
-                        with torch.no_grad():
-                            safety_pred = self.evaluator.judge(generated_text,data={"question":self.val_dataset["question"]})
+                with torch.no_grad():
+                    safety_pred = self.jailbreak_evaluator.judge(generated_text,data={"question":self.val_harmful_dataset["question"]})
 
-                        ASR = sum(1 for pred in safety_pred if pred == "false") / len(safety_pred)
-                        print(f"Attack success rate: {ASR:.4f}")
-                        self.evaluator.destroy()
-                        torch.cuda.empty_cache()
-                        self.model.train(True)
-                    
-                    if step % save_interval == 0:
-                        self.model.save_model(os.path.join(save_path, 'prompt_embedding_iter_{}.pth'.format(i)))
+                ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
+                print(f"Attack success rate: {ASR:.4f}")
+                self.jailbreak_evaluator.destroy()
+                torch.cuda.empty_cache()
 
-                    step += 4
+                generated_text = []
+                # validation on benign dataset
+                with torch.no_grad():
+                    for k in range(0, len(self.val_normal_dataset), self.val_batchsize):
+                        inputs = self.val_normal_dataset[k:k + self.val_batchsize]
+                        inputs.pop("chosen")
+                        res = self.model.generate(inputs)
+                        generated_text.extend(res)
+
+                for j in range(4):
+                    print("Question benign %d: %s" % (j,self.val_normal_dataset['question'][j]))
+                    print("chosen benign %d: %s" % (j,self.val_normal_dataset['chosen'][j]))
+                    if "rejected" in self.val_normal_dataset:
+                        print("rejected benign %d: %s" % (j,self.val_normal_dataset['rejected'][j]))
+                    print("Generated text benign %d: %s" % (j,generated_text[j]))
+                torch.cuda.empty_cache()
+
+                with torch.no_grad():
+                    safety_pred = self.normal_evaluator.judge(generated_text,data={"question":self.val_normal_dataset["question"]})
+            
+                ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
+                print(f"Attack success rate benign: {ASR:.4f}")
+                torch.cuda.empty_cache()
+
+                self.model.train(True)
+
+                self.model.save_model(os.path.join(save_path, 'prompt_embedding_iter_{}.pth'.format(i)))
+
 
     def generate(self):
         responses= []
