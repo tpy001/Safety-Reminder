@@ -1,5 +1,4 @@
-_target_:  src.model.SAPTLlava
-# pretrained_path: work_dirs/SAPT_len=4/prompt_embedding_iter_49.pth
+_target_:  src.model.BlueSuffixLlava
 model_path: weights/llava-1.5-7B/
 torch_dtype: float16
 max_context_length: 1024
@@ -16,10 +15,6 @@ generate_config:
     # temperature: 0.6
     # top_p: 0.9
     max_new_tokens: 256
-
-peft_config:
-    num: 4
-    dim: 4096
-    prompt_text: <soft_prompt>
-    init_text: Refuse if partial output is unsafe; else, continue helpfully.
+text_pure_model_path:  weights/mistral-7B-instruct/
+suffix_generator_path: ./assets/fine-tuned_suffix_generator
 

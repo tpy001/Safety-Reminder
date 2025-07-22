@@ -170,6 +170,13 @@ class VQAModel(torch.nn.Module):
         label_ids = self.get_labels(inputs['input_ids'],substring = self.assistant_tag).to(self.device)
 
         image_token_id = getattr(self.processor.tokenizer, "image_token_id", None)
+        if image_token_id is None:
+            try:
+                image_token_id = self.model.config.image_token_index
+            except:
+                image_token_id = self.model.config.image_token_id
+        else:
+            raise ValueError("Image token not found in tokenizer.")
         
         inputs['input_ids'], inputs['attention_mask'], label_ids = self.truncate_around_image_token(
             input_ids=inputs['input_ids'],
@@ -188,7 +195,7 @@ class VQAModel(torch.nn.Module):
             **kwargs
         )
         if output_hidden_states:
-            return outputs.hidden_states
+            return outputs.loss, outputs.hidden_states
         else:
             return outputs.loss
 
@@ -201,12 +208,12 @@ class VQAModel(torch.nn.Module):
 
     def forward(self,inputs,use_image=True,output_hidden_states=False, use_answer = True, **kwargs):
         self.check_inputs(inputs,use_image,use_answer)
-        if not use_answer:
+        if not use_answer and "chosen" in inputs.keys():
             inputs.pop("chosen")
-        formatted_prompt,images = self.get_formatted_prompt(inputs,use_image)
+        formatted_prompt,images = self.get_formatted_prompt(inputs,use_image, **kwargs)
         return self._forward(formatted_prompt,images=images,output_hidden_states=output_hidden_states, **kwargs)
     
-    def get_formatted_prompt(self, inputs,use_image=True):
+    def get_formatted_prompt(self, inputs,use_image=True, **kwargs):
         raise NotImplementedError("formatted_prompt method is not implemented.")
         
     def generate(self,inputs, use_image = True, **kwargs):  

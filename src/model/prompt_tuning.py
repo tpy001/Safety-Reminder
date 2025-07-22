@@ -4,11 +4,13 @@ from peft import PromptEmbedding
 from loguru import logger
 from src.utils import get_class_name
 from transformers.models.llava.modeling_llava import LlavaCausalLMOutputWithPast
+from transformers.models.qwen2_vl.modeling_qwen2_vl import Qwen2VLCausalLMOutputWithPast
 import torch
-from transformers import LlavaForConditionalGeneration
+from transformers import LlavaForConditionalGeneration,Qwen2VLForConditionalGeneration
 from typing import Optional, Tuple, Union, List
 from .base_model import VQAModel
 from .llava import VQALlaVA
+from .Qwen2VL import VQAQwen2VL
 
 
     
@@ -51,6 +53,7 @@ class PromptTuningLlavaModel(LlavaForConditionalGeneration):
         soft_prompt_id = None,
         soft_prompt_num = None,
         soft_prompt_embedding = None,
+        use_original_sample = False, # Unused, kept for compatibility with transformers library
         **kwargs,
     ):
 
@@ -188,6 +191,160 @@ class PromptTuningLlavaModel(LlavaForConditionalGeneration):
         )
 
 
+class PromptTuningQwen2VL(Qwen2VLForConditionalGeneration):
+    def forward(
+        self,
+        input_ids: torch.LongTensor = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        past_key_values: Optional[List[torch.FloatTensor]] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        pixel_values: Optional[torch.Tensor] = None,
+        pixel_values_videos: Optional[torch.FloatTensor] = None,
+        image_grid_thw: Optional[torch.LongTensor] = None,
+        video_grid_thw: Optional[torch.LongTensor] = None,
+        rope_deltas: Optional[torch.LongTensor] = None,
+        soft_prompt_id = None,
+        soft_prompt_num = None,
+        soft_prompt_embedding = None,
+    ):
+        assert soft_prompt_id is not None
+        assert soft_prompt_num is not None
+        assert soft_prompt_embedding is not None
+    
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if inputs_embeds is None:
+            inputs_embeds = self.model.embed_tokens(input_ids)
+            index = torch.arange(self.soft_prompt_num)
+            soft_prompt_embeddings = self.prompt_embedding(index).expand(inputs_embeds.shape[0], self.soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
+            soft_prompt_mask = (
+                    (input_ids == self.soft_prompt_id)
+                    .unsqueeze(-1)
+                    .expand_as(inputs_embeds)
+                    .to(inputs_embeds.device)
+            )
+            inputs_embeds = inputs_embeds.masked_scatter(soft_prompt_mask,soft_prompt_embeddings )
+
+            if pixel_values is not None:
+                pixel_values = pixel_values.type(self.visual.get_dtype())
+                image_embeds = self.visual(pixel_values, grid_thw=image_grid_thw)
+                n_image_tokens = (input_ids == self.config.image_token_id).sum().item()
+                n_image_features = image_embeds.shape[0]
+                if n_image_tokens != n_image_features:
+                    raise ValueError(
+                        f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
+                    )
+                
+                n_soft_prompt = (input_ids == self.soft_prompt_id).sum(dim=-1)[0].item()
+                if n_soft_prompt != self.soft_prompt_num and n_soft_prompt > 0:
+                    raise ValueError(
+                        f"Soft prompt tokens do not match: tokens: {n_soft_prompt}, expected: {self.soft_prompt_num}"
+                )
+                soft_prompt_mask = (
+                    (input_ids == self.soft_prompt_id)
+                    .unsqueeze(-1)
+                    .expand_as(inputs_embeds)
+                    .to(inputs_embeds.device)
+                )
+
+                image_mask = (
+                    (input_ids == self.config.image_token_id)
+                    .unsqueeze(-1)
+                    .expand_as(inputs_embeds)
+                    .to(inputs_embeds.device)
+                )
+                image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
+
+                index = torch.arange(self.soft_prompt_num)
+                soft_prompt_embeddings = self.prompt_embedding(index).expand(inputs_embeds.shape[0], self.soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
+                inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
+                inputs_embeds = inputs_embeds.masked_scatter(soft_prompt_mask,soft_prompt_embeddings )
+
+            if pixel_values_videos is not None:
+                pixel_values_videos = pixel_values_videos.type(self.visual.get_dtype())
+                video_embeds = self.visual(pixel_values_videos, grid_thw=video_grid_thw)
+                n_video_tokens = (input_ids == self.config.video_token_id).sum().item()
+                n_video_features = video_embeds.shape[0]
+                if n_video_tokens != n_video_features:
+                    raise ValueError(
+                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features {n_video_features}"
+                    )
+                video_mask = (
+                    (input_ids == self.config.video_token_id)
+                    .unsqueeze(-1)
+                    .expand_as(inputs_embeds)
+                    .to(inputs_embeds.device)
+                )
+                video_embeds = video_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
+                inputs_embeds = inputs_embeds.masked_scatter(video_mask, video_embeds)
+
+            if attention_mask is not None:
+                attention_mask = attention_mask.to(inputs_embeds.device)
+        else:
+            index = torch.arange(self.soft_prompt_num)
+            soft_prompt_embeddings = self.prompt_embedding(index).expand(inputs_embeds.shape[0], self.soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
+            soft_prompt_mask = (
+                    (input_ids == self.soft_prompt_id)
+                    .unsqueeze(-1)
+                    .expand_as(inputs_embeds)
+                    .to(inputs_embeds.device)
+            )
+            inputs_embeds = inputs_embeds.masked_scatter(soft_prompt_mask,soft_prompt_embeddings )
+            
+        outputs = self.model(
+            input_ids=None,
+            position_ids=position_ids,
+            attention_mask=attention_mask,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        hidden_states = outputs[0]
+        logits = self.lm_head(hidden_states)
+
+        loss = None
+        if labels is not None:
+            # Upcast to float if we need to compute the loss to avoid potential precision issues
+            logits = logits.float()
+            # Shift so that tokens < n predict n
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_labels = labels[..., 1:].contiguous()
+            # Flatten the tokens
+            loss_fct = nn.CrossEntropyLoss()
+            shift_logits = shift_logits.view(-1, self.config.vocab_size)
+            shift_labels = shift_labels.view(-1)
+            # Enable model parallelism
+            shift_labels = shift_labels.to(shift_logits.device)
+            loss = loss_fct(shift_logits, shift_labels)
+
+        if not return_dict:
+            output = (logits,) + outputs[1:]
+            return (loss,) + output if loss is not None else output
+
+        return Qwen2VLCausalLMOutputWithPast(
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+            rope_deltas=rope_deltas,
+        ) 
+
+
 class PromptTuning(VQAModel):
     '''
         Add the soft prompt to the beginning of the user question.
@@ -205,7 +362,7 @@ class PromptTuning(VQAModel):
             self.tokenizer.add_tokens([self.soft_prompt_text])
         self.soft_prompt_id = self.tokenizer.convert_tokens_to_ids(self.soft_prompt_text)
 
-        self.word_embedding = self.model.language_model.get_input_embeddings()
+        self.word_embedding = self.get_language_model().get_input_embeddings()
 
         # Step 1: tokenize init text
         init_tokens = self.tokenizer(self.soft_prompt_init_text, return_tensors="pt", add_special_tokens=False)["input_ids"][0]
@@ -292,3 +449,6 @@ class PromptTuning(VQAModel):
    
 class PromptTuningLlava(PromptTuning,VQALlaVA):
     model_cls = PromptTuningLlavaModel
+
+class PromptTuningQwen2VL(PromptTuning,VQAQwen2VL):
+    model_cls = PromptTuningQwen2VL

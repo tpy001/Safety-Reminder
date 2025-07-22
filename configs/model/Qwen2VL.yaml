@@ -1,0 +1,22 @@
+_target_:  src.model.VQAQwen2VL
+model_path: weights/QWen2-VL-7B/
+torch_dtype: bfloat16
+max_context_length: 1024
+device: cuda
+trainable: frozen
+min_pixels: 12544 # 16 * 28 * 28  
+max_pixels: 200704 # 256 * 28 * 28
+generate_config:
+    type: GenerationConfig
+    bos_token_id: 151643
+    pad_token_id: 151643
+    eos_token_id: [
+        151645,
+        151643
+    ]
+    return_full_tex: False
+    use_cache: True
+    do_sample: False
+    # temperature: 0.6
+    # top_p: 0.9
+    max_new_tokens: 256
