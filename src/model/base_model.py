@@ -195,7 +195,7 @@ class VQAModel(torch.nn.Module):
             **kwargs
         )
         if output_hidden_states:
-            return outputs.hidden_states
+            return outputs.loss, outputs.hidden_states
         else:
             return outputs.loss
 

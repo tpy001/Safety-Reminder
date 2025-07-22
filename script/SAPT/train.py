@@ -30,17 +30,21 @@ def main(cfg) -> None:
 
     # 3. Load dataset
     train_dataset = instantiate(cfg.train_dataset)
-    val_dataset = instantiate(cfg.val_dataset)
+    val_harmful_dataset = instantiate(cfg.val_harmful_dataset)
+    val_normal_dataset = instantiate(cfg.val_normal_dataset)
 
     # 4. Load evaluator
-    evaluator = instantiate(cfg.evaluator)
+    jailbreak_evaluator = instantiate(cfg.jailbreak_evaluator)
+    normal_evaluator = instantiate(cfg.normal_evaluator)  
 
     # Initialize the Runner and start training
     runner = SAPT_Runner(
         model = model,
         training_set= train_dataset,
-        val_dataset= val_dataset,   
-        evaluator= evaluator,
+        val_harmful_dataset= val_harmful_dataset,   
+        val_normal_dataset = val_normal_dataset,
+        jailbreak_evaluator= jailbreak_evaluator,
+        normal_evaluator= normal_evaluator,
         train_config= cfg.train_config
     )
     runner.train()

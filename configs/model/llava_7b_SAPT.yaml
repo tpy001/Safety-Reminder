@@ -3,7 +3,7 @@ _target_:  src.model.SAPTLlava
 model_path: weights/llava-1.5-7B/
 torch_dtype: float16
 max_context_length: 1024
-device: cuda
+device: auto
 trainable: frozen
 generate_config:
     type: GenerationConfig

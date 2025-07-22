@@ -6,6 +6,6 @@ question: question
 chosen: answer
 image: image
 safe: true
-# sample: 32
+sample: 128
 seed: 0
 

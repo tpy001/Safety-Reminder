@@ -113,17 +113,26 @@ class SAPT_Runner:
                 for iter, batch_inputs in enumerate(self.train_loader):
                     self.model.zero_grad()
                     loss = self.model(batch_inputs)
-                    loss = loss.float()
+                    if isinstance(loss,dict):
+                        cls_loss = loss["cls_loss"].float()
+                        lm_loss = loss["lm_loss"].float()
+                        loss = loss["total"].float()
+                    else:
+                        loss = loss.float()
                     loss.backward()
                     self.optimizer.step()
                     
                     pbar.update(1)  
                     pbar.set_postfix(
-                        loss=loss.item(),
+                        cls_loss=cls_loss.item(),
+                        lm_loss=lm_loss.item(),
+                        total_loss=loss.item()  
                     )
+
                     
                 # valiadation on training set
-                print("Iter: %d, Loss: %f" % (i, loss.item()))
+                # print("Iter: %d, Loss: %f" % (i, loss.item()))
+                print("Iter: %d, cls_loss: %f, lm_loss: %f" % (i, cls_loss.item(), lm_loss.item()))
                 generated_text = []
                 
                 # validation on harmful dataset

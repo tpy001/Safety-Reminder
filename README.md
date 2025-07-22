@@ -88,3 +88,12 @@ Testing:
 ```
 
 
+#### 7. Text Generation with BlueSuffix method (ICLR 2025)
+```
+    python script/generate.py model=llava_7b_blue_suffix dataset=VLSafe_harmful +dataset.sample=4
+```
+
+#### 8. Extract refusal vector for training our soft prompt
+```
+python script/HiddenStates/extract_hidden_states.py --config-name hidden_states_train.yaml 
+```
