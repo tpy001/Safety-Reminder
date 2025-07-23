@@ -138,3 +138,8 @@ Testing:
 ```
 python script/HiddenStates/extract_hidden_states.py --config-name hidden_states_train.yaml 
 ```
+
+#### 9. Train DRO model
+```
+python script/DRO/train.py --config-name dro_training.yaml
+```

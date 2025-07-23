@@ -54,9 +54,26 @@ class PromptTuningLlavaModel(LlavaForConditionalGeneration):
         soft_prompt_num = None,
         soft_prompt_embedding = None,
         use_original_sample = False, # Unused, kept for compatibility with transformers library
+        use_original_forward = False,
         **kwargs,
     ):
-
+        if use_original_forward:
+            return super().forward(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                past_key_values=past_key_values,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                cache_position=cache_position,
+                num_logits_to_keep=num_logits_to_keep,
+                **kwargs,
+            )
+        
         assert soft_prompt_id is not None
         assert soft_prompt_num is not None
         assert soft_prompt_embedding is not None
@@ -406,7 +423,7 @@ class PromptTuning(VQAModel):
         insert_pos = add_pos
         soft_prompt = " ".join([self.soft_prompt_text]*self.soft_prompt_num)
         if insert_pos == 'first':
-            prompt = soft_prompt.rstrip()() +" " + prompt.lstrip()
+            prompt = soft_prompt.rstrip() +" " + prompt.lstrip()
         elif insert_pos == 'last':
             prompt = prompt.rstrip() + " " + soft_prompt.lstrip()
         else:

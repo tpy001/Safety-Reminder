@@ -200,3 +200,5 @@ data/
 downloaded_USB_dataset/
 results/
 work_dirs/
+outputs
+doc/
