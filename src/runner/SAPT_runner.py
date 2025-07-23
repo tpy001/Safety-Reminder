@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 import os
 import hydra
-
+from loguru import logger
 
 
 class SAPT_Runner:
@@ -68,8 +68,8 @@ class SAPT_Runner:
             else:
                 raise ValueError("Unsupported optimizer type: %s" % optimzer_cls)
 
-        print("Training dataset size: %d" % len(self.training_set))
-        print("Val dataset size: %d" % len(self.val_harmful_dataset))
+        logger.info("Training dataset size: %d" % len(self.training_set))
+        logger.info("Val dataset size: %d" % len(self.val_harmful_dataset))
         
         # 4. build lr_schedule
         lr_schedule = self.train_config.get('lr_schedule')
@@ -90,11 +90,11 @@ class SAPT_Runner:
             # for i in range(len(responses)):
             #     token_num = self.model.model.tokenizer(responses[i])['input_ids'][1:]
             #     generated_token_num += len(token_num)
-            # print(f"生成的token数: {generated_token_num}")
+            # logger.info(f"生成的token数: {generated_token_num}")
             # elapsed_time = end_time - start_time
-            # print(f"运行时间: {elapsed_time:.4f} 秒")
+            # logger.info(f"运行时间: {elapsed_time:.4f} 秒")
             # avg_time = generated_token_num / elapsed_time
-            # print(f"平均每个token的生成时间: {avg_time:.4f} 秒")
+            # logger.info(f"平均每个token的生成时间: {avg_time:.4f} 秒")
             self.evaluation(responses)
 
     def train(self):
@@ -131,8 +131,8 @@ class SAPT_Runner:
 
                     
                 # valiadation on training set
-                # print("Iter: %d, Loss: %f" % (i, loss.item()))
-                print("Iter: %d, cls_loss: %f, lm_loss: %f" % (i, cls_loss.item(), lm_loss.item()))
+                # logger.info("Iter: %d, Loss: %f" % (i, loss.item()))
+                logger.info("Iter: %d, cls_loss: %f, lm_loss: %f" % (i, cls_loss.item(), lm_loss.item()))
                 generated_text = []
                 
                 # validation on harmful dataset
@@ -146,18 +146,18 @@ class SAPT_Runner:
                         generated_text.extend(res)
 
                 for j in range(4):
-                    print("Question %d: %s" % (j,self.val_harmful_dataset['question'][j]))
-                    print("chosen %d: %s" % (j,self.val_harmful_dataset['chosen'][j]))
+                    logger.info("Question %d: %s" % (j,self.val_harmful_dataset['question'][j]))
+                    logger.info("chosen %d: %s" % (j,self.val_harmful_dataset['chosen'][j]))
                     if "rejected" in self.val_harmful_dataset:
-                        print("rejected %d: %s" % (j,self.val_harmful_dataset['rejected'][j]))
-                    print("Generated text %d: %s" % (j,generated_text[j]))
+                        logger.info("rejected %d: %s" % (j,self.val_harmful_dataset['rejected'][j]))
+                    logger.info("Generated text %d: %s" % (j,generated_text[j]))
                 torch.cuda.empty_cache()
 
                 with torch.no_grad():
                     safety_pred = self.jailbreak_evaluator.judge(generated_text,data={"question":self.val_harmful_dataset["question"]})
 
                 ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
-                print(f"Attack success rate: {ASR:.4f}")
+                logger.info(f"Attack success rate: {ASR:.4f}")
                 self.jailbreak_evaluator.destroy()
                 torch.cuda.empty_cache()
 
@@ -171,18 +171,18 @@ class SAPT_Runner:
                         generated_text.extend(res)
 
                 for j in range(4):
-                    print("Question benign %d: %s" % (j,self.val_normal_dataset['question'][j]))
-                    print("chosen benign %d: %s" % (j,self.val_normal_dataset['chosen'][j]))
+                    logger.info("Question benign %d: %s" % (j,self.val_normal_dataset['question'][j]))
+                    logger.info("chosen benign %d: %s" % (j,self.val_normal_dataset['chosen'][j]))
                     if "rejected" in self.val_normal_dataset:
-                        print("rejected benign %d: %s" % (j,self.val_normal_dataset['rejected'][j]))
-                    print("Generated text benign %d: %s" % (j,generated_text[j]))
+                        logger.info("rejected benign %d: %s" % (j,self.val_normal_dataset['rejected'][j]))
+                    logger.info("Generated text benign %d: %s" % (j,generated_text[j]))
                 torch.cuda.empty_cache()
 
                 with torch.no_grad():
                     safety_pred = self.normal_evaluator.judge(generated_text,data={"question":self.val_normal_dataset["question"]})
             
                 ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
-                print(f"Attack success rate benign: {ASR:.4f}")
+                logger.info(f"Attack success rate benign: {ASR:.4f}")
                 torch.cuda.empty_cache()
 
                 self.model.train(True)

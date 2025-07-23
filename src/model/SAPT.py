@@ -19,6 +19,7 @@ from transformers.cache_utils import *
 from .llava import VQALlaVA,format_prompt,LlaVA_chat_template
 from transformers.models.llava.modeling_llava import LlavaCausalLMOutputWithPast
 import numpy as np
+from .llava import LlaVA_chat_template
 
 def check_if_tokens_start_with_capital(
     token_ids,
@@ -314,7 +315,7 @@ class SAPTLlavaModel(LlavaForConditionalGeneration):
             streamer.end()
 
         self.is_safe = is_safe
-        print(is_safe.to("cpu"))
+        logger.info(is_safe.to("cpu"))
         if return_dict_in_generate:
             if self.config.is_encoder_decoder:
                 return GenerateEncoderDecoderOutput(
@@ -501,6 +502,7 @@ class SAPTLlava(PromptTuning):
     assistant_tag = "ASSISTANT:"
     classfier_path = "assets/llava_pca_cls.npz"
     classfier_data = np.load(classfier_path)
+    chat_template = LlaVA_chat_template
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
