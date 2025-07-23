@@ -10,6 +10,6 @@ text_dataset:
     answer: target
     safe: false
     # sample: 32
-    seed: seed
+    seed: 0
 
     

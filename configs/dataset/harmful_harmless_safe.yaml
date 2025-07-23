@@ -1,0 +1,9 @@
+
+_target_: src.dataset.harmful_harmless
+data_path: data/harmful_harmless
+data_files: harmless_train.json
+split: train
+question: instruction
+safe: true
+sample: 256
+seed: 0

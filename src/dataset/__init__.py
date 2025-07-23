@@ -8,3 +8,5 @@ from .SafetyAlignedDataset import SafetyAlignedDataset
 from .ConcatedDataset import ConcatedDataset
 from .DPO_dataset import DPO_Dataset
 from .MMVet import MMVet
+from .justinphan_harmful_harmless import justinphan_harmful_harmless
+from .harmful_harmless import harmful_harmless

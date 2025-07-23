@@ -1,0 +1,8 @@
+
+_target_: src.dataset.justinphan_harmful_harmless
+data_path: data/justinphan_harmful_harmless/
+split: train
+question: sentence
+safe: label
+# sample: 32
+seed: 0
