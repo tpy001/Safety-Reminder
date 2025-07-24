@@ -500,7 +500,7 @@ class SAPTLlavaModel(LlavaForConditionalGeneration):
 class SAPTLlava(PromptTuning):
     model_cls = SAPTLlavaModel
     assistant_tag = "ASSISTANT:"
-    classfier_path = "assets/llava_pca_cls.npz"
+    classfier_path = "assets/llava/llava_pca_cls.npz"
     classfier_data = np.load(classfier_path)
     chat_template = LlaVA_chat_template
     

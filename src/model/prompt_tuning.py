@@ -410,6 +410,7 @@ class PromptTuning(VQAModel):
                 logger.info(f"Loading pretrained prompt embedding from {pretrained_path}...")
             except:
                 logger.warning(f"Failed to load pretrained prompt embedding from {pretrained_path}...")
+                raise
 
     def freeze_base_model(self):
         # freeze the basic model and only fine-tuning the learnable prompt

@@ -17,7 +17,22 @@ from PIL import Image
 from .Qwen2VL import format_prompt
 from transformers.generation import GenerationConfig
 from copy import deepcopy
+import numpy as np
 
+def classification(hidden_states: torch.Tensor, classfier_data: dict, top_m = 4) -> torch.Tensor:
+    device = hidden_states.device  
+    
+    pca_components = torch.tensor(classfier_data["pca_components"][:top_m], dtype=torch.float32, device=device)  # (m, D)
+    pca_mean = torch.tensor(classfier_data["pca_mean"], dtype=torch.float32, device=device)                       # (D,)
+    clf_weights = torch.tensor(classfier_data["clf_weights"], dtype=torch.float32, device=device)                 # (1, m)
+    clf_bias = torch.tensor(classfier_data["clf_bias"], dtype=torch.float32, device=device)                       # (1,)
+
+    centered_features = hidden_states - pca_mean           # shape: (N, D)
+    projected = centered_features @ pca_components.T       # shape: (N, m)
+    logits = projected @ clf_weights.T + clf_bias          # shape: (N, 1)
+    probs_pos = torch.sigmoid(logits)                      # shape: (N, 1)
+
+    return probs_pos
 
 
 class SAPTQwen2VLModel(Qwen2VLForConditionalGeneration):
@@ -73,26 +88,32 @@ class SAPTQwen2VLModel(Qwen2VLForConditionalGeneration):
 
         # new_model_inputs.pop("cache_position")
         with torch.no_grad():
-            outputs = self(**new_model_inputs, return_dict=True)
+            outputs = self(**new_model_inputs, return_dict=True,output_hidden_states=True)
 
-        next_token_logits = outputs.logits.clone()[:, -1, :].float()
-        next_token_logits = next_token_logits.to(input_ids.device)
-
-        # pre-process distribution
-        next_token_scores = logits_processor(input_ids, next_token_logits)
-
-        next_tokens = torch.argmax(next_token_scores, dim=-1)
-
-        input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
-        END_CHARS = {"!", "?", ".", "\n", "…", ":"}
-        last_chars = [ text[-1] for text in input_text]
-        is_ended = torch.tensor(    [char in END_CHARS for char in last_chars]).to(input_ids.device)
-        # next_token_strings = self.tokenizer.batch_decode(next_tokens, skip_special_tokens=False)
-        is_capital_list = check_if_tokens_start_with_capital(next_tokens, self.tokenizer)
-
-        is_safe = (~is_capital_list) | is_ended
-
+        selected_hidden = outputs.hidden_states[-1][:,-1]
+        pred_safe = classification(selected_hidden,self.classfier).squeeze()
+        threshold = 0.2
+        is_safe = pred_safe >= threshold 
         return is_safe
+    
+        # next_token_logits = outputs.logits.clone()[:, -1, :].float()
+        # next_token_logits = next_token_logits.to(input_ids.device)
+
+        # # pre-process distribution
+        # next_token_scores = logits_processor(input_ids, next_token_logits)
+
+        # next_tokens = torch.argmax(next_token_scores, dim=-1)
+
+        # input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
+        # END_CHARS = {"!", "?", ".", "\n", "…", ":"}
+        # last_chars = [ text[-1] for text in input_text]
+        # is_ended = torch.tensor(    [char in END_CHARS for char in last_chars]).to(input_ids.device)
+        # # next_token_strings = self.tokenizer.batch_decode(next_tokens, skip_special_tokens=False)
+        # is_capital_list = check_if_tokens_start_with_capital(next_tokens, self.tokenizer)
+
+        # is_safe = (~is_capital_list) | is_ended
+
+        # return is_safe
 
     def _sample(
         self,
@@ -498,6 +519,9 @@ class SAPTQwen2VLModel(Qwen2VLForConditionalGeneration):
 class SAPTQwen2VL(PromptTuning):
     model_cls = SAPTQwen2VLModel
     assistant_tag = 'assistant\n'
+    classfier_path = "assets/Qwen/pca_classifier.npz"
+    classfier_data = np.load(classfier_path)
+
     add_eos_token = False
     def __init__(self, min_pixels = None,max_pixels = None,*args, **kwargs):
         self.min_pixels = min_pixels
@@ -600,25 +624,72 @@ class SAPTQwen2VL(PromptTuning):
         else:
             batch_prompts_chosen, batch_prompts_rejected, images = self.get_formatted_prompt_train(inputs, use_image,add_soft_prompt=True)
         try:
-            chosen_loss = self._forward(
-                batch_prompts_chosen, 
+            chosen_loss,hidden_states = self._forward(
+                batch_prompts_chosen.copy(), 
                 images=images,
-                output_hidden_states=output_hidden_states,
+                # output_hidden_states=output_hidden_states,
+                output_hidden_states=True,
                 soft_prompt_id = self.soft_prompt_id,
                 soft_prompt_num = self.soft_prompt_num,
                 soft_prompt_embedding = self.prompt_embedding,)
+            
+            hidden_states = hidden_states[-1] # Last Layer, 
+            # Calculation Classifier Loss
+            cls_loss = self.cal_cls_loss(
+                batch_prompts_chosen,
+                images = images,
+                hidden_states = hidden_states,
+                labels = inputs["safe"]
+            )
+            loss = {
+                "cls_loss": cls_loss,
+                "lm_loss": chosen_loss,
+                "total": 0.05*cls_loss + chosen_loss
+            }
+
         except:
             logger.info("Error in forward function of SAPT")
-            dummy_loss = torch.tensor(0.0, device=getattr(self, 'device', 'cpu'), requires_grad=True)
-            return dummy_loss.clone()
+            loss = torch.tensor(0.0, device=getattr(self, 'device', 'cpu'), requires_grad=True).clone()
         if output_hidden_states:
-            return chosen_loss, chosen_loss.hidden_states
+            return loss, hidden_states
         else:
-            return chosen_loss
+            return loss
     
+    def cal_cls_loss(
+        self,
+        batch_prompts_chosen,
+        images,
+        hidden_states,
+        labels,
+    ):
+        inputs = self.processor(images=images, text=batch_prompts_chosen, padding=True, return_tensors="pt").to(self.device)
+        label_ids = self.get_labels(inputs['input_ids'],substring = self.assistant_tag).to(self.device)
+        mask = (label_ids != -100) 
+        first_valid_indices = mask.float().masked_fill(~mask, float('inf')).argmin(dim=1)
+
+        token_index = first_valid_indices - 1
+        valid_mask = token_index < self.max_context_length
+
+        # Apply valid_mask
+        hidden_states = hidden_states[valid_mask]
+        token_index = token_index[valid_mask]
+        labels = labels.to(valid_mask)[valid_mask]
+
+        batch_size = hidden_states.size(0)
+        batch_indices = torch.arange(batch_size, device=hidden_states.device)
+        selected_hidden = hidden_states[batch_indices, token_index]
+
+        loss_fn = nn.BCELoss()
+        logits = classification(selected_hidden,self.classfier_data).squeeze(-1)  # shape: (B,)
+        labels = labels.float()  # 转为 float tensor
+        loss = loss_fn(logits, labels)
+        return loss
+
+
     def generate(self,inputs, use_image = True,return_full_text = False, **kwargs): 
         batch_prompts, images = self.get_formatted_prompt(inputs, use_image)
 
+        self.model.classfier = self.classfier_data
         first_generated_text = self.generate_text(
             batch_prompts, 
             images = images, 

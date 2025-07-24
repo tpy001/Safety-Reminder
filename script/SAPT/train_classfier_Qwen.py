@@ -341,6 +341,7 @@ def main(cfg) -> None:
 
             # 只取指定层和token
             hs_tuple = output if isinstance(output, tuple) else output.hidden_states
+            hs_tuple = hs_tuple[1]
             selected_layer = hs_tuple[cfg.select_layer]  # shape: (B, T, D)
             token_vec = selected_layer[:, cfg.select_token_index, :]  # shape: (B, D)
 
@@ -354,7 +355,7 @@ def main(cfg) -> None:
     visualizer = DataVisualizer(features, train_dataset["safe"], train_dataset["source_dataset"], n_components=n_components)
     visualizer.visualize_data()
     visualizer.visualize_cumulative_var()
-    top_tokens_from_hidden(visualizer.pca.components_[0],model.tokenizer,model.get_language_model().lm_head,topk=20)
+    top_tokens_from_hidden(visualizer.pca.components_[0],model.tokenizer,model.model.lm_head,topk=20)
     visualizer.fit_classifier_and_plot()
 
     #####  ######   ######   ######   ######   ######   ###### 
@@ -369,6 +370,7 @@ def main(cfg) -> None:
 
             # 只取指定层和token
             hs_tuple = output if isinstance(output, tuple) else output.hidden_states
+            hs_tuple = hs_tuple[1]
             selected_layer = hs_tuple[cfg.select_layer]  # shape: (B, T, D)
             token_vec = selected_layer[:, cfg.select_token_index, :]  # shape: (B, D)
 
