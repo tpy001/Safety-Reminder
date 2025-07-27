@@ -1,0 +1,11 @@
+
+batch_size: 8
+seed: 0
+debug: False
+
+
+defaults:
+  - model: llava_7b
+  - evaluator: LLamaGuard3  
+  - _self_
+

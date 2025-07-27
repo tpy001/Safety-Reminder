@@ -84,17 +84,18 @@ Download the Llama-Guard3 from the
 #### 1. Generate the text and evaluate the safety
 ```
    python script/generate.py dataset=FigStep
-   #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4
-   #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4 debug=True
+   #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4 # Sample 4 data from the dataset
+   #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4 debug=True # Debug the code 
    #  python script/generate.py --multirun  model=llava_self_reminder dataset=MMSafetyBench,SPA_VL   # Multi Run
 ```
 
 #### 2. Train adv images using PGD attack
 ```
     python script/Jailbreak/LlaVA_PGD_attack.py
+    # python script/Jailbreak/Qwen2VL_PGD_attack.py # For Qwen2VL model
 ```
 
-#### 3. PromptTuning
+#### 3. PromptTuning 
 Training
 ```
     python script/PromptTuning/train.py  --config_nam  llava_PT_training.yaml
@@ -104,42 +105,67 @@ Testing
     python script/generate.py model=llava_7b_PT dataset=VLSafe_harmful +dataset.sample=4 debug=True
 ```
 
-#### 4. Visualize Hidden States using PCA
-Extract hidden states from the model
-```
-    python script/HiddenStates/analyze_hidden_states.py --config-name hidden_states.yaml 
-```
 
-#### 5. Run SAPT
+#### 4. Run SAPT
 Training:
 ```
-     python script/SAPT/train.py  debug=True
-     # python script/SAPT/train.py model=Qwen2VL_SAPT debug=True
+     python script/SAPT/train.py  
+     # python script/SAPT/train.py model=Qwen2VL_SAPT debug=True # For Qwen2VL model and debug the code 
 
 ```
 Testing:
 ```
     python script/generate.py model=llava_7b_SAPT dataset=FigStep +dataset.sample=4 debug=True
+    # python script/generate.py model=Qwen2VL_SAPT dataset=FigStep +dataset.sample=4 debug=True # Qwen2VL model
 ```
 
-
-#### 6. Test self reminder method
+#### 5. Test self reminder method (Nature)
 ``` 
     python script/generate.py model=llava_self_reminder dataset=FigStep +dataset.sample=4 debug=True
 ```
 
-
-#### 7. Text Generation with BlueSuffix method (ICLR 2025)
+#### 6. Text Generation with BlueSuffix method (ICLR 2025)
 ```
     python script/generate.py model=llava_7b_blue_suffix dataset=VLSafe_harmful +dataset.sample=4
 ```
+
+#### 7. DRO model (ICML 2024)
+Training:
+```
+# Step1: Training a refusal and a harmfulness classifier
+python script/DRO/train_cls_DRO.py --config-name classfier_train model=llava_7b
+
+# Step2: Direct Representation Optimization(DRO) for safety prompt
+python script/DRO/train.py --config-name train_DRO.yaml model=llava_7b_DRO
+```
+Testing:
+```
+    python script/generate.py model=llava_7b_DRO dataset=FigStep +dataset.sample=4 debug=True
+```
+
+#### 8. Visualize the Hidden States at different token positions
+```
+    python script/HiddenStates/analyze_hidden_states.py --config-name hidden_states.yaml 
+```
+
+
+
+
 
 #### 8. Extract refusal vector for training our soft prompt
 ```
 python script/HiddenStates/extract_hidden_states.py --config-name hidden_states_train.yaml 
 ```
 
-#### 9. Train DRO model
+
+
+#### 9. GCG Attack
+Training:
 ```
-python script/DRO/train.py --config-name dro_training.yaml
+    python script/GCG/gcg.py --config-name GCG.yaml  debug=True
+    # python script/GCG/gcg.py --config-name GCG.yaml  model=Qwen2VL debug=True
+```
+Testing:
+```
+    python script/generate_text_only.py model=llava_7b dataset=GCG
 ```

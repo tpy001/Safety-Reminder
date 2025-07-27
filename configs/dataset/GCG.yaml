@@ -1,0 +1,12 @@
+_target_: src.dataset.BaseDataset
+
+data_path: data/GCG/
+# data_files: gcg_llava.csv
+data_files: GCG_Qwen2VL.csv
+split: train
+question: goal
+chosen: target
+safe: false
+# sample: 128
+seed: 0
+
