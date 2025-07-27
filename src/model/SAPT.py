@@ -132,7 +132,9 @@ class SAPTLlavaModel(LlavaForConditionalGeneration):
         # model_kwargs.pop("cache_position")
         new_model_kwargs["use_cache"] = False
         new_model_inputs = self.prepare_inputs_for_generation(input_ids, **new_model_kwargs)
-        new_model_inputs["pixel_values"] = model_kwargs["pixel_values"]
+
+        if "pixel_values" in model_kwargs.keys():
+            new_model_inputs["pixel_values"] = model_kwargs["pixel_values"]
 
         
         soft_prompt_ids = torch.full(
@@ -651,8 +653,9 @@ class SAPTLlava(PromptTuning):
         inputs["chosen"] = []
         if isinstance(inputs["question"],str):
             inputs["question"] = [inputs["question"]]
-        if isinstance(inputs["image"],str) or isinstance(inputs["image"],Image.Image):
-            inputs["image"] = [inputs["image"]]
+        if "image" in inputs.keys():
+            if isinstance(inputs["image"],str) or isinstance(inputs["image"],Image.Image):
+                inputs["image"] = [inputs["image"]]
         for i in range(len(is_safe)):
             if not is_safe[i]:
                 inputs["chosen"].append(self.add_soft_prompt(first_generated_text[i],add_pos="last"))

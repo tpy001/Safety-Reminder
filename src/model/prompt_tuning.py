@@ -11,8 +11,16 @@ from typing import Optional, Tuple, Union, List
 from .base_model import VQAModel
 from .llava import VQALlaVA
 from .Qwen2VL import VQAQwen2VL
+from transformers.generation import GenerationConfig
+from transformers.cache_utils import *
 
-
+from transformers.generation.logits_process import LogitsProcessorList
+from transformers.generation.stopping_criteria import StoppingCriteriaList  
+from transformers.generation.utils import (
+    GenerateNonBeamOutput,
+    GenerateEncoderDecoderOutput,
+    GenerateDecoderOnlyOutput
+)
     
 class PromptEmbedding(torch.nn.Module):
     def __init__(self, num, dim, init_embeds=None):
@@ -208,7 +216,95 @@ class PromptTuningLlavaModel(LlavaForConditionalGeneration):
         )
 
 
-class PromptTuningQwen2VL(Qwen2VLForConditionalGeneration):
+class PromptTuningQwen2VLModel(Qwen2VLForConditionalGeneration):
+    def prepare_inputs_for_generation(
+        self,
+        input_ids,
+        past_key_values=None,
+        attention_mask=None,
+        inputs_embeds=None,
+        cache_position=None,
+        position_ids=None,
+        use_cache=True,
+        pixel_values=None,
+        pixel_values_videos=None,
+        image_grid_thw=None,
+        video_grid_thw=None,
+        **kwargs,
+    ):
+        # Overwritten -- in specific circumstances we don't want to forward image inputs to the model
+
+        # If we have cache: let's slice `input_ids` through `cache_position`, to keep only the unprocessed tokens
+        # Exception 1: when passing input_embeds, input_ids may be missing entries
+        # Exception 2: some generation methods do special slicing of input_ids, so we don't need to do it here
+        if past_key_values is not None:
+            if inputs_embeds is not None:  # Exception 1
+                input_ids = input_ids[:, -cache_position.shape[0] :]
+            elif input_ids.shape[1] != cache_position.shape[0]:  # Default case (the "else", a no op, is Exception 2)
+                input_ids = input_ids[:, cache_position]
+
+        rope_deltas = kwargs.get("rope_deltas", None)
+        if attention_mask is not None and position_ids is None:
+            if cache_position is None or (cache_position is not None and cache_position[0] == 0):
+                position_ids, rope_deltas = self.get_rope_index(
+                    input_ids, image_grid_thw, video_grid_thw, attention_mask
+                )
+            else:
+                batch_size, seq_length = input_ids.shape
+                delta = (
+                    cache_position[0] + rope_deltas if cache_position is not None and rope_deltas is not None else 0
+                )
+                position_ids = torch.arange(seq_length, device=input_ids.device)
+                position_ids = position_ids.view(1, -1).expand(batch_size, -1)
+                position_ids = position_ids.add(delta)
+                position_ids = position_ids.unsqueeze(0).expand(3, -1, -1)
+
+        if cache_position[0] != 0:
+            pixel_values = None
+            pixel_values_videos = None
+
+        # if `inputs_embeds` are passed, we only want to use them in the 1st generation step
+        if inputs_embeds is not None and cache_position[0] == 0:
+            model_inputs = {"inputs_embeds": inputs_embeds, "input_ids": None}
+        else:
+            model_inputs = {"input_ids": input_ids, "inputs_embeds": None}
+
+        if isinstance(past_key_values, StaticCache) and attention_mask.ndim == 2:
+            if model_inputs["inputs_embeds"] is not None:
+                batch_size, sequence_length, _ = inputs_embeds.shape
+                device = inputs_embeds.device
+            else:
+                batch_size, sequence_length = input_ids.shape
+                device = input_ids.device
+
+            attention_mask = self.model._prepare_4d_causal_attention_mask_with_cache_position(
+                attention_mask,
+                sequence_length=sequence_length,
+                target_length=past_key_values.get_max_cache_shape(),
+                dtype=self.lm_head.weight.dtype,
+                device=device,
+                cache_position=cache_position,
+                batch_size=batch_size,
+                config=self.config,
+                past_key_values=past_key_values,
+            )
+
+        model_inputs.update(
+            {
+                "position_ids": position_ids,
+                "past_key_values": past_key_values,
+                "use_cache": use_cache,
+                "attention_mask": attention_mask,
+                "pixel_values": pixel_values,
+                "pixel_values_videos": pixel_values_videos,
+                "image_grid_thw": image_grid_thw,
+                "video_grid_thw": video_grid_thw,
+                "rope_deltas": rope_deltas,
+                **kwargs  # 合并进这个字典
+            }
+        )
+        return model_inputs
+    
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -229,7 +325,29 @@ class PromptTuningQwen2VL(Qwen2VLForConditionalGeneration):
         soft_prompt_id = None,
         soft_prompt_num = None,
         soft_prompt_embedding = None,
-    ):
+        use_original_forward = False,
+        **kwargs,
+    ):  
+        if use_original_forward:
+            return super().forward(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                past_key_values=past_key_values,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                pixel_values=pixel_values,
+                pixel_values_videos=pixel_values_videos,
+                image_grid_thw=image_grid_thw,
+                video_grid_thw=video_grid_thw,
+                rope_deltas=rope_deltas,
+                **kwargs,
+            )
+        
         assert soft_prompt_id is not None
         assert soft_prompt_num is not None
         assert soft_prompt_embedding is not None
@@ -242,10 +360,10 @@ class PromptTuningQwen2VL(Qwen2VLForConditionalGeneration):
 
         if inputs_embeds is None:
             inputs_embeds = self.model.embed_tokens(input_ids)
-            index = torch.arange(self.soft_prompt_num)
-            soft_prompt_embeddings = self.prompt_embedding(index).expand(inputs_embeds.shape[0], self.soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
+            index = torch.arange(soft_prompt_num)
+            soft_prompt_embeddings = soft_prompt_embedding(index).expand(inputs_embeds.shape[0], soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
             soft_prompt_mask = (
-                    (input_ids == self.soft_prompt_id)
+                    (input_ids == soft_prompt_id)
                     .unsqueeze(-1)
                     .expand_as(inputs_embeds)
                     .to(inputs_embeds.device)
@@ -262,13 +380,13 @@ class PromptTuningQwen2VL(Qwen2VLForConditionalGeneration):
                         f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
                     )
                 
-                n_soft_prompt = (input_ids == self.soft_prompt_id).sum(dim=-1)[0].item()
-                if n_soft_prompt != self.soft_prompt_num and n_soft_prompt > 0:
+                n_soft_prompt = (input_ids == soft_prompt_id).sum(dim=-1)[0].item()
+                if n_soft_prompt != soft_prompt_num and n_soft_prompt > 0:
                     raise ValueError(
-                        f"Soft prompt tokens do not match: tokens: {n_soft_prompt}, expected: {self.soft_prompt_num}"
+                        f"Soft prompt tokens do not match: tokens: {n_soft_prompt}, expected: {soft_prompt_num}"
                 )
                 soft_prompt_mask = (
-                    (input_ids == self.soft_prompt_id)
+                    (input_ids == soft_prompt_id)
                     .unsqueeze(-1)
                     .expand_as(inputs_embeds)
                     .to(inputs_embeds.device)
@@ -282,8 +400,8 @@ class PromptTuningQwen2VL(Qwen2VLForConditionalGeneration):
                 )
                 image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
 
-                index = torch.arange(self.soft_prompt_num)
-                soft_prompt_embeddings = self.prompt_embedding(index).expand(inputs_embeds.shape[0], self.soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
+                index = torch.arange(soft_prompt_num)
+                soft_prompt_embeddings = soft_prompt_embedding(index).expand(inputs_embeds.shape[0], soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
                 inputs_embeds = inputs_embeds.masked_scatter(soft_prompt_mask,soft_prompt_embeddings )
 
@@ -308,10 +426,10 @@ class PromptTuningQwen2VL(Qwen2VLForConditionalGeneration):
             if attention_mask is not None:
                 attention_mask = attention_mask.to(inputs_embeds.device)
         else:
-            index = torch.arange(self.soft_prompt_num)
-            soft_prompt_embeddings = self.prompt_embedding(index).expand(inputs_embeds.shape[0], self.soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
+            index = torch.arange(soft_prompt_num)
+            soft_prompt_embeddings = soft_prompt_embedding(index).expand(inputs_embeds.shape[0], soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
             soft_prompt_mask = (
-                    (input_ids == self.soft_prompt_id)
+                    (input_ids == soft_prompt_id)
                     .unsqueeze(-1)
                     .expand_as(inputs_embeds)
                     .to(inputs_embeds.device)
@@ -469,4 +587,4 @@ class PromptTuningLlava(PromptTuning,VQALlaVA):
     model_cls = PromptTuningLlavaModel
 
 class PromptTuningQwen2VL(PromptTuning,VQAQwen2VL):
-    model_cls = PromptTuningQwen2VL
+    model_cls = PromptTuningQwen2VLModel
