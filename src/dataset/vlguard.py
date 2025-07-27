@@ -1,10 +1,20 @@
 from .base_dataset import BaseDataset
-from datasets import load_dataset
+from datasets import load_dataset,Dataset
+import os
+from src.utils import set_seed
+import numpy as np
+
+
 class VLGuard(BaseDataset):
     name = "VLGuard"
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    
+    def sample(self, sample_num):
+        set_seed(self.seed)
+        return self.data.select(range(sample_num*2))
+    
     def load_dataset(self):
         dataset = load_dataset(self.data_path, data_files = self.split+".json",split='train')
         data = {
@@ -28,7 +38,7 @@ class VLGuard(BaseDataset):
 
                 data['question'].append(instruct)
                 data['image'].append(image)
-                data['answer'].append(response)
+                data['chosen'].append(response)
                 data['safe'].append(safe)
 
         return Dataset.from_dict(data)

@@ -43,11 +43,16 @@ class MMSafetyBench(BaseDataset):
                 data['category'].append(scen)
                 data['id'].append(i)
 
-        data['safe'] = [False] * len(data['question'])
-        data['chosen'] = [""] * len(data['question'])
+        if kwargs["safe"]:
+            data['safe'] = [True] * len(data['question'])
+        else:
+            data['safe'] = [False] * len(data['question'])
 
 
         self.data = Dataset.from_dict(data)
+
+        if "chosen" not in self.data.column_names:
+            self.data = self.data.add_column("chosen", [""] * len(self.data))
 
         if sample > 0 and sample < len(self.data):
             self.data = self.sample(sample)
