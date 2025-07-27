@@ -354,7 +354,13 @@ def main(cfg) -> None:
     visualizer = DataVisualizer(features, train_dataset["safe"], train_dataset["source_dataset"], n_components=n_components)
     visualizer.visualize_data()
     visualizer.visualize_cumulative_var()
-    top_tokens_from_hidden(visualizer.pca.components_[0],model.tokenizer,model.get_language_model().lm_head,topk=20)
+
+    try:
+        lm_head = model.get_language_model().lm_head
+    except:
+        lm_head = model.model.lm_head
+
+    top_tokens_from_hidden(visualizer.pca.components_[0],model.tokenizer,lm_head,topk=20)
     visualizer.fit_classifier_and_plot()
     visualizer.fit_and_save_classifier(save_name="pca_harmfulness.npz")
 
@@ -398,7 +404,12 @@ def main(cfg) -> None:
     visualizer = DataVisualizer(features, refusal_labels, train_dataset["source_dataset"], n_components=n_components)
     visualizer.visualize_data()
     visualizer.visualize_cumulative_var()
-    top_tokens_from_hidden(visualizer.pca.components_[0],model.tokenizer,model.get_language_model().lm_head,topk=20)
+
+    try:
+        lm_head = model.get_language_model().lm_head
+    except:
+        lm_head = model.model.lm_head
+    top_tokens_from_hidden(visualizer.pca.components_[0],model.tokenizer,lm_head,topk=20)
     visualizer.fit_classifier_and_plot()
     visualizer.fit_and_save_classifier(save_name="pca_refusal.npz")
 
