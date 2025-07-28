@@ -115,7 +115,7 @@ class BlueSuffixLlava(VQALlaVA):
         _inputs = inputs.copy()
         # Step1: Text purifier
         formatted_prompt = self.get_text_pure_prompt(_inputs['question'])
-        result = self.text_pure_pipeline(formatted_prompt, max_new_tokens=128,do_sample=False,return_full_text=False,batch_size=8)
+        result = self.text_pure_pipeline(formatted_prompt, max_new_tokens=256,do_sample=False,return_full_text=False,batch_size=8)
         
         # Extract the rephased question from the generated text
         processed_questions = []
@@ -139,7 +139,7 @@ class BlueSuffixLlava(VQALlaVA):
         torch.cuda.empty_cache()
         # Step3: Generate blue suffix using pretrained GPT2 model
         questions = _inputs['question']
-        suffixes =   self.suffix_generator.generate_suffix_batch(questions, max_new_tokens=50)
+        suffixes =   self.suffix_generator.generate_suffix_batch(questions, max_new_tokens=10)
         _inputs['question'] = [f"{question} {suffix}" for question, suffix in zip(questions, suffixes)]
 
         torch.cuda.empty_cache()

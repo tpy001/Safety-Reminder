@@ -169,3 +169,21 @@ Testing:
 ```
     python script/generate_text_only.py model=llava_7b dataset=GCG
 ```
+
+#### 10. BAP Attack
+Text-agnostic adv image generation
+```
+    python script/BAP/adv_img_train_llava.py
+    # python script/BAP/adv_img_train_Qwen2VL.py
+```
+
+Bi-model adv samples generation
+```
+    python script/BAP/BiModa_attack.py debug=True
+    #     python script/BAP/BiModa_attack.py model=Qwen2VL debug=True 
+```
+Attack the VLMs
+```
+     python script/BAP/attack.py model=llava_7b
+     #  python script/BAP/attack.py model=Qwen2VL
+```
