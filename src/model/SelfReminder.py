@@ -1,5 +1,6 @@
 from .llava import VQALlaVA,build_llava_chat_template
 from .Qwen2VL import VQAQwen2VL
+from .DeepSeekVL import VQADeepSeek
 from PIL import Image
 
 SYSTEM_PROMPT_llava = "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. You should be a responsible AI and not generate harmful, misleading content! Please answer the following query in a responsible way."
@@ -98,7 +99,30 @@ def build_qwen2_chat_template(question: str, answer = None,use_image: bool = Tru
 
     return conversation
 
-
+def build_DeepSeekVL_chat_template(question: str, answer = None,image = None) -> list:
+    if image is not None:
+        return [
+            {
+                "role": "User",
+                "content": "<image_placeholder>" + question,
+                # "images": [image]
+            },
+            {
+                "role": "Assistant",
+                "content": "" if answer is None else answer,
+            }
+    ]
+    else:
+      return [
+             {
+                "role": "User",
+                "content": question,
+            },
+            {
+                "role": "Assistant",
+                "content": "" if answer is None else answer,
+            },
+        ]
     
 def format_prompt_llava(tokenizer, questions, answers = [],add_generation_prompt = True, use_image = True, ):
     """
@@ -137,6 +161,26 @@ def format_prompt_qwen2(tokenizer, questions, answers = [],add_generation_prompt
         batch_prompts.append(prompt)
     return batch_prompts
 
+def format_prompt_deepseekVL(vl_chat_processor, questions, answers = None,add_generation_prompt = True, image_paths=None, ):
+    """
+    apply chat template to questions.
+    return a list of prompt string
+    """
+    if isinstance(questions,str):
+        questions = [questions]
+    formatted_prompt_list = []
+    for i in range(len(questions)):
+        if image_paths is not None:
+            conversation = build_DeepSeekVL_chat_template(question = questions[i].strip() + " " + SAFETY_REMINDER, image=image_paths[i])
+        else:
+            conversation = build_DeepSeekVL_chat_template(question = questions[i].strip() + " " + SAFETY_REMINDER)
+
+        formatted_prompt  = vl_chat_processor.apply_sft_template_for_multi_turn_prompts(
+            conversations=conversation,
+            system_prompt=vl_chat_processor.system_prompt
+        )
+        formatted_prompt_list.append(formatted_prompt)
+    return formatted_prompt_list
 
 class SelfReminderLlava(VQALlaVA):
 
@@ -165,7 +209,6 @@ class SelfReminderLlava(VQALlaVA):
         batch_prompts = format_prompt_llava(self.tokenizer,questions,answers = answers ,add_generation_prompt=True,use_image=use_image)
         return batch_prompts,images 
 
-
 class SelfReminderQwen2VL(VQAQwen2VL):
     def get_formatted_prompt(self,inputs, use_image = True, ):
         questions = inputs['question']
@@ -191,3 +234,34 @@ class SelfReminderQwen2VL(VQAQwen2VL):
 
         batch_prompts = format_prompt_qwen2(self.tokenizer,questions,answers = answers ,add_generation_prompt=True,use_image=use_image)
         return batch_prompts,images
+    
+
+
+class SelfReminderDeepSeek(VQADeepSeek):
+ def get_formatted_prompt(self,inputs, use_image = True, ):
+        questions = inputs['question']
+        if "chosen" in inputs.keys():
+            answers = inputs['chosen']
+        else:
+            answers = None
+        if not isinstance(questions,list):
+            questions = [questions]
+        if answers is not None and not isinstance(answers,list):
+            answers = [answers]
+        if use_image:
+            assert 'image' in inputs.keys(), "Image is not provided in inputs."
+            images = inputs['image'] 
+            if isinstance(images,str) or isinstance(images,Image.Image) :
+                images = [images]
+            assert len(questions) == len(images), "The number of questions and images should be the same."
+            if isinstance(images[0],str):
+                images = [Image.open(image_path).convert("RGB") for image_path in images]
+
+        else:
+            images = None
+
+        if use_image:
+            formatted_prompt = format_prompt_deepseekVL(self.processor,questions,answers = answers ,add_generation_prompt=True,image_paths=images)
+        else:
+            formatted_prompt = format_prompt_deepseekVL(self.processor,questions,answers = answers ,add_generation_prompt=True)
+        return formatted_prompt,images
