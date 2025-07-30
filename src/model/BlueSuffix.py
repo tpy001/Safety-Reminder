@@ -1,5 +1,6 @@
 from .base_model import VQAModel
 from .llava import VQALlaVA
+from .Qwen2VL import VQAQwen2VL
 import transformers
 import torch
 from .Image_Purifier.image_purifier import purify_image
@@ -147,7 +148,66 @@ class BlueSuffixLlava(VQALlaVA):
         formatted_prompt, images = self.get_formatted_prompt(_inputs, use_image)
         return self.generate_text(formatted_prompt, images=images, **kwargs)
     
+class BlueSuffixQwen2VL(VQAQwen2VL):
+    def __init__(self,text_pure_model_path,suffix_generator_path, *args, **kwargs):
+        super().__init__(*args,**kwargs)
+        self.text_pure_model_path = text_pure_model_path
+        self.text_pure_pipeline = transformers.pipeline(
+            "text-generation",
+            model=self.text_pure_model_path,
+            model_kwargs={"torch_dtype": torch.float16},
+            device_map="auto"
+        )
+        self.text_pure_pipeline.tokenizer.pad_token_id =  self.text_pure_pipeline.model.config.eos_token_id
+        self.suffix_generator =  PPOGPT2Infer(suffix_generator_path)
 
-    
+    def get_text_pure_prompt(self,questions):
+        tokenizer = self.text_pure_pipeline.tokenizer  
+        if isinstance(questions,str):
+            questions = [questions]
+        formatted_prompt = []
+        for i,question in enumerate(questions):
+            conversation =  [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": text_pure_template.format(question)},
+            ]
+            formatted_prompt.append(tokenizer.apply_chat_template(conversation, tokenize=False))
+        return formatted_prompt
+
+    def generate(self,inputs, use_image = True, **kwargs):  
+        _inputs = inputs.copy()
+        # Step1: Text purifier
+        formatted_prompt = self.get_text_pure_prompt(_inputs['question'])
+        result = self.text_pure_pipeline(formatted_prompt, max_new_tokens=256,do_sample=False,return_full_text=False,batch_size=8)
+        
+        # Extract the rephased question from the generated text
+        processed_questions = []
+        pattern = r"@@(.*?)@@"
+        for i in range(len(result)):
+            match = re.search(pattern, result[i][0]["generated_text"])
+            if match:
+                extracted_content = match.group(1).strip()
+                processed_questions.append(extracted_content)
+            else:
+                processed_questions.append(_inputs['question'][i])
+
+        _inputs['question'] = processed_questions
+
+        # Step2: Image purfier
+        torch.cuda.empty_cache()
+        images = _inputs["image"]
+        purified_image = purify_image(images)
+        _inputs["image"] = purified_image
+
+        torch.cuda.empty_cache()
+        # Step3: Generate blue suffix using pretrained GPT2 model
+        questions = _inputs['question']
+        suffixes =   self.suffix_generator.generate_suffix_batch(questions, max_new_tokens=10)
+        _inputs['question'] = [f"{question} {suffix}" for question, suffix in zip(questions, suffixes)]
+
+        torch.cuda.empty_cache()
+        # Step4: Text generation
+        formatted_prompt, images = self.get_formatted_prompt(_inputs, use_image)
+        return self.generate_text(formatted_prompt, images=images, **kwargs)
     
         
