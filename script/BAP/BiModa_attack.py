@@ -22,7 +22,8 @@ import re
 # adv_img_path = "work_dirs/BAP/llava/adv_noise_1500.bmp"
 
 attack_LLM_path = "weights/mistral-7B-instruct/"
-adv_img_path = "work_dirs/BAP/Qwen2VL/adv_noise_1500.bmp"
+# adv_img_path = "work_dirs/BAP/Qwen2VL/adv_noise_1500.bmp"
+adv_img_path = "work_dirs/BAP/DeepSeekVL/adv_noise_2100.bmp"
 
 CoT_template = """
 **Intention**:'{}'

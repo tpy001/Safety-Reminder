@@ -4,13 +4,18 @@ import json
 import os
 
 
-data_folder = "work_dirs/GCG/Qwen2VL"
+# data_folder = "work_dirs/GCG/llava"
+data_folder = "work_dirs/GCG/DeepSeekVL"
 output_path ="./GCG.csv"
 
 
-data_paths = [os.path.join(data_folder, f) for f in os.listdir(data_folder) if f.endswith(".json")]
+data_paths = sorted(
+    [os.path.join(data_folder, f) 
+     for f in os.listdir(data_folder) if f.endswith(".json")]
+)
 adv_suffix_list = []
 last_suffix_list = []
+questions = []
 
 for path in data_paths:
     data = json.load(open(path, "r"))
@@ -18,10 +23,10 @@ for path in data_paths:
     last_suffix = data["strings"][-1]
     adv_suffix_list.append(adv_suffix)
     last_suffix_list.append(last_suffix)
+    questions.append(data["question"])
 
 
 dataset = load_dataset("csv", data_files="script/GCG/harmful_behaviors.csv")["train"]
-questions = dataset["goal"][:len(adv_suffix_list)]
 
 adv_questions = [ questions[i] + " " + adv_suffix_list[i] for i in range(len(questions))]
 adv_questions2 = [ questions[i] + " " + last_suffix_list[i] for i in range(len(questions))]

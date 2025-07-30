@@ -67,7 +67,8 @@ def main(cfg) -> None:
     # 3. Load dataset
     # dataset = instantiate(cfg.dataset)
     # dataset = load_dataset("json", data_files="data/BAP/llava/genereated_response.json")['train']
-    dataset = load_dataset("json", data_files="data/BAP/Qwen2VL/genereated_response.json")['train']
+    # dataset = load_dataset("json", data_files="data/BAP/Qwen2VL/genereated_response.json")['train']
+    dataset = load_dataset("json", data_files="data/BAP/DeepSeekVL/genereated_response.json")['train']
 
 
     # 4. Load evaluator
