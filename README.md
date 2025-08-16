@@ -16,13 +16,17 @@ tokens, which are periodically injected during the text generation process to en
 conversations unaffected and preserving the model’s performance on benign tasks. Through comprehensive evaluation across three established safety benchmarks and one adversarial attacks, we demonstrate that our approach significantly reduces attack success rates while maintaining model utility, offering a practical solution for deploying safer VLMs in real-world applications.
 
 
-![Delayed Safety Awareness in VLMs](assets/Delayed_awareness.png)
-**Figure 1: Delayed Safety Awareness in VLMs**
+<figure style="text-align: center;">
+  <img src="assets/Delayed_awareness.png" alt="Delayed Safety Awareness in VLMs" width="600">
+  <figcaption><b>Figure 1:</b> Delayed Safety Awareness in VLMs</figcaption>
+</figure>
 
 
-![SAPT method](assets/SAPT.png)
-**Figure 2: We aim to address this problem by training a continuous soft prompt, called a safety reminder, to proactively reactivate safety awareness during text generation.**
-## Installation
+<figure style="text-align: center;">
+  <img src="assets/SAPT.png" alt="SAPT method">
+  <figcaption><b>Figure 2:</b> We aim to address this problem by training a continuous soft prompt, called a safety reminder, to proactively reactivate safety awareness during text generation.</figcaption>
+</figure>
+
 ```
 conda create -n safeVLM python=3.10.14
 conda activate safeVLM
