@@ -10,7 +10,18 @@ This is the official repository of
     <img src='https://img.shields.io/badge/arXiv-PDF-red?style=flat&logo=arXiv&logoColor=wihte' alt='arXiv PDF'>
 </a>
 
+## Abstract
+As Vision-Language Models (VLMs) demonstrate increasing capabilities across real-world applications such as code generation and chatbot assistance, ensuring their safety has become paramount. Unlike traditional Large Language Models (LLMs), VLMs face unique vulnerabilities due to their multimodal nature, allowing adversaries to modify visual or textual inputs to bypass safety guardrails and trigger the generation of harmful content. Through systematic analysis of VLM behavior under attack, we identify a novel phenomenon termed “delayed safety awareness”. Specifically, we observe that safety-aligned VLMs may initially be compromised to produce harmful content, but eventually recognize the associated risks and attempt to self-correct. This pattern suggests that VLMs retain their underlying safety awareness but experience a temporal delay in their activation. Building on this insight, we hypothesize that VLMs’ safety awareness can be proactively reactivated through carefully designed prompts. To this end, we introduce “The Safety Reminder”, a soft prompt tuning approach that optimizes learnable prompt
+tokens, which are periodically injected during the text generation process to enhance safety awareness, effectively preventing harmful content generation. Additionally, our safety reminder only activates when harmful content is detected, leaving normal
+conversations unaffected and preserving the model’s performance on benign tasks. Through comprehensive evaluation across three established safety benchmarks and one adversarial attacks, we demonstrate that our approach significantly reduces attack success rates while maintaining model utility, offering a practical solution for deploying safer VLMs in real-world applications.
 
+
+![Delayed Safety Awareness in VLMs](assets/Delayed_awareness.png)
+**Figure 1: Delayed Safety Awareness in VLMs**
+
+
+![SAPT method](assets/SAPT.png)
+**Figure 2: We aim to address this problem by training a continuous soft prompt, called a safety reminder, to proactively reactivate safety awareness during text generation.**
 ## Installation
 ```
 conda create -n safeVLM python=3.10.14
@@ -73,117 +84,84 @@ The final folder structure should be:
             └── ...
 ```
 
-#### 3. VLSafe
-Please download from our google drive.
+#### 3. SPA-VL
+Please download the dataset from https://huggingface.co/datasets/sqrti/SPA-VL
 
 
-## Judge Model Download
-Download the Llama-Guard3 from the 
 
 ## Scripts
-#### 1. Generate the text and evaluate the safety
+## 1. Text Generation and Safety Evaluation
+Basic Generation
 ```
-   python script/generate.py dataset=FigStep
-   #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4 # Sample 4 data from the dataset
-   #  python script/generate.py dataset=VLSafe_harmful +dataset.sample=4 debug=True # Debug the code 
-   #  python script/generate.py --multirun  model=llava_self_reminder dataset=MMSafetyBench,SPA_VL   # Multi Run
+# Run text generation with llava_7b model on FigStep dataset
+python script/generate.py dataset=FigStep model=llava_7b
+
+# Run text generation with our SAPT-enhanced llava_7b model on FigStep dataset
+python script/generate.py dataset=FigStep model=llava_7b_SAPT
+
+# Run text generation with our Qwen2VL model on MMSafetyBench dataset
+python script/generate.py dataset=FigStep model=Qwen2VL
+
+# Run text generation with our SAPT-enhanced Qwen2VL model on MMSafetyBench dataset
+python script/generate.py dataset=FigStep model=Qwen2VL_SAPT
 ```
 
-#### 2. Train adv images using PGD attack
+## 2. Training soft prompts with our SAPT
 ```
-    python script/Jailbreak/LlaVA_PGD_attack.py
-    # python script/Jailbreak/Qwen2VL_PGD_attack.py # For Qwen2VL model
+    # Train SAPT for llava_7b model
+     python script/SAPT/train.py
+
+    # Train SAPT for Qwen2VL-7B model
+     python script/SAPT/train.py model=Qwen2VL_SAPT
+```
+Pretrained soft prompts can be found in `pretrained_models/`
+
+## 3. Adversarial Attack Methods
+#### （1） ImgJP Attack
+```
+# for LlaVA model
+python script/Jailbreak/LlaVA_PGD_attack.py
+
+# for Qwen2VL model
+python script/Jailbreak/Qwen2VL_PGD_attack.py
+```
+Pretrained adversarial images can be found in `data/PGD_attack`
+
+#### （2） GCG Attack
+```
+# GCG Attack for Llava-1.5-7B model
+python script/GCG/gcg.py --config-name GCG.yaml model=llava_7b
+
+#  GCG Attack for Qwen2VL model
+python script/GCG/gcg.py --config-name GCG.yaml model=Qwen2VL
 ```
 
-#### 3. PromptTuning 
-Training
-```
-    python script/PromptTuning/train.py  --config_nam  llava_PT_training.yaml
-```
-Testing
-```
-    python script/generate.py model=llava_7b_PT dataset=VLSafe_harmful +dataset.sample=4 debug=True
-```
+Pretrained adversarial suffix can be found in `data/GCG`
 
 
-#### 4. Run SAPT
-Training:
+#### （3） BAP Attack
 ```
-     python script/SAPT/train.py  
-     # python script/SAPT/train.py model=Qwen2VL_SAPT debug=True # For Qwen2VL model and debug the code 
-
-```
-Testing:
-```
-    python script/generate.py model=llava_7b_SAPT dataset=FigStep +dataset.sample=4 debug=True
-    # python script/generate.py model=Qwen2VL_SAPT dataset=FigStep +dataset.sample=4 debug=True # Qwen2VL model
+# Step1: Text-agnostic adv image generation
+  python script/BAP/adv_img_train_llava.py
+# Step2: Bi-modal adv image generation
+ python script/BAP/BiModa_attack.py 
+# Step3: Attack the VLMs
+ python script/BAP/attack.py model=llava_7b
 ```
 
-#### 5. Test self reminder method (Nature)
-``` 
-    python script/generate.py model=llava_self_reminder dataset=FigStep +dataset.sample=4 debug=True
-```
+Pretrained adversarial image and queris can be found in `data/BAP`
 
-#### 6. Text Generation with BlueSuffix method (ICLR 2025)
-```
-    python script/generate.py model=llava_7b_blue_suffix dataset=VLSafe_harmful +dataset.sample=4
-```
+<!-- ## 4. Results on Different Datasets
+The experiment results of different models on different datasets can be found in `results/` -->
 
-#### 7. DRO model (ICML 2024)
-Training:
-```
-# Step1: Training a refusal and a harmfulness classifier
-python script/DRO/train_cls_DRO.py --config-name classfier_train model=llava_7b
+## 4. Some Important Files:
 
-# Step2: Direct Representation Optimization(DRO) for safety prompt
-python script/DRO/train.py --config-name train_DRO.yaml model=llava_7b_DRO
-```
-Testing:
-```
-    python script/generate.py model=llava_7b_DRO dataset=FigStep +dataset.sample=4 debug=True
-```
-
-#### 8. Visualize the Hidden States at different token positions
-```
-    python script/HiddenStates/analyze_hidden_states.py --config-name hidden_states.yaml 
-```
-
-
-
-
-
-#### 8. Extract refusal vector for training our soft prompt
-```
-python script/HiddenStates/extract_hidden_states.py --config-name hidden_states_train.yaml 
-```
+- src/dataset: Implementation of various datasets
+- src/model: Implementation of various models
+- src/model/SAPT.py, SAPT_Qwen.py: Main implementation for our SAPT method
+- script/SAPT/train_classifier.py: Training a safety-awareness classifier
+- src/runner/SAPT_runner.py: Training soft prompt using our SAPT
 
 
 
-#### 9. GCG Attack
-Training:
-```
-    python script/GCG/gcg.py --config-name GCG.yaml  debug=True
-    # python script/GCG/gcg.py --config-name GCG.yaml  model=Qwen2VL debug=True
-```
-Testing:
-```
-    python script/generate_text_only.py model=llava_7b dataset=GCG
-```
 
-#### 10. BAP Attack
-Text-agnostic adv image generation
-```
-    python script/BAP/adv_img_train_llava.py
-    # python script/BAP/adv_img_train_Qwen2VL.py
-```
-
-Bi-model adv samples generation
-```
-    python script/BAP/BiModa_attack.py debug=True
-    #     python script/BAP/BiModa_attack.py model=Qwen2VL debug=True 
-```
-Attack the VLMs
-```
-     python script/BAP/attack.py model=llava_7b
-     #  python script/BAP/attack.py model=Qwen2VL
-```
