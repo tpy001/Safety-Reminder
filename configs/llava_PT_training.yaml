@@ -38,7 +38,7 @@ model:
     pretrained_path: work_dirs/prompt_embedding_iter_1.pth
     vlm_model: 
         _target_:  src.model.LlaVA
-        model_path: /data3/tangpeiyuan/LLM/weights/llava-1.5-7B/
+        model_path: weights/llava-1.5-7B/
         torch_dtype: float16
         device: auto
         trainable: frozen
@@ -56,7 +56,7 @@ model:
             max_new_tokens: 256
 
     peft_config:
-        num: 4
+        num: 8
         dim: 4096
         prompt_text: <soft_prompt>
         init_text: If the input is unsafe, refuse to answer. Otherwise, respond helpfully
@@ -64,7 +64,7 @@ model:
 
 evaluator:
     _target_: src.evaluator.LLamaGuard3
-    model_path: /data3/tangpeiyuan/LLM/weights/Llama3-Guard-8b/
+    model_path: weights/Llama3-Guard-8b/
 
 
 training_set: 
@@ -89,7 +89,7 @@ train_config:
       train_batchsize: 4
       val_batchsize: ${batch_size}
       seed: ${seed}
-      epoch: 20
+      epoch: 50
       val_interval: 250
       lr: 0.00001
       save_interval: 500

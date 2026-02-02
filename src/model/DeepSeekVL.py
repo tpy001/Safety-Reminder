@@ -54,7 +54,7 @@ def format_prompt(vl_chat_processor, questions, answers = None,add_generation_pr
             conversations=conversation,
             system_prompt=vl_chat_processor.system_prompt
         )
-        if answers is not None and len(answers) > 0:
+        if answers is not None and len(answers) > 0 and answers[0] is not None:
             formatted_prompt = formatted_prompt.strip() + " " + answers[i]
             if add_eos_token:
                 formatted_prompt = formatted_prompt + "<｜end▁of▁sentence｜>"
@@ -75,12 +75,15 @@ class VQADeepSeek(VQAModel):
         formatted_prompt,images = self.get_formatted_prompt(inputs,use_image, **kwargs)
         return self._forward(formatted_prompt,images=images,output_hidden_states=output_hidden_states, **kwargs)
     
-    def _forward(self, formatted_prompt, images=None, output_hidden_states=False, **kwargs):
+    def _forward(self, formatted_prompt, images=None, output_hidden_states=False, truncate = True, **kwargs):
         prepare_input_list = []
         for i in range(len(formatted_prompt)):
-            if isinstance(images[i],Image.Image):
+            if images and isinstance(images[i],Image.Image):
                 images[i] = images[i].convert("RGB")
-            prepare_input = self.processor(prompt=formatted_prompt[i],images = [images[i]],force_batchify=False)
+            if images:
+                prepare_input = self.processor(prompt=formatted_prompt[i],images = [images[i]],force_batchify=False)
+            else:
+                prepare_input = self.processor(prompt=formatted_prompt[i],images = None,force_batchify=False)
             prepare_input_list.append(prepare_input)
         batch_inputs = self.processor.batchify(prepare_input_list).to(self.model.device)
 
@@ -88,19 +91,20 @@ class VQADeepSeek(VQAModel):
 
         image_token_id = self.tokenizer.encode("<image_placeholder>")[1]
         
-        batch_inputs['input_ids'], batch_inputs['attention_mask'], label_ids = self.truncate_around_image_token(
-            input_ids=batch_inputs['input_ids'],
-            attention_mask=batch_inputs['attention_mask'],
-            label_ids=label_ids,
-            max_length=self.max_context_length,
-            image_token_id=image_token_id,
-        )
+        if truncate:
+            batch_inputs['input_ids'], batch_inputs['attention_mask'], label_ids = self.truncate_around_image_token(
+                input_ids=batch_inputs['input_ids'],
+                attention_mask=batch_inputs['attention_mask'],
+                label_ids=label_ids,
+                max_length=self.max_context_length,
+                image_token_id=image_token_id,
+            )
 
         if self.trainable== "frozen":
             with torch.no_grad():
-                inputs_embeds = self.model.prepare_inputs_embeds(**batch_inputs)
+                inputs_embeds = self.model.prepare_inputs_embeds(**batch_inputs,**kwargs)
         else:
-            inputs_embeds = self.model.prepare_inputs_embeds(**batch_inputs)
+            inputs_embeds = self.model.prepare_inputs_embeds(**batch_inputs,**kwargs)
 
         outputs = self.model.language_model(
             inputs_embeds = inputs_embeds,
@@ -114,7 +118,7 @@ class VQADeepSeek(VQAModel):
             return outputs.loss, outputs.hidden_states
         else:
             return outputs.loss
-        
+    
     def load_model(self,*args, **kwargs):
         if self.device not in ['cpu', 'cuda', 'auto', None]:
             raise ValueError("device should be 'cpu', 'cuda', 'auto', or None'.")
@@ -146,7 +150,7 @@ class VQADeepSeek(VQAModel):
     def get_language_model(self):
         return self.model.language_model
     
-    def get_formatted_prompt(self,inputs, use_image = True, ):
+    def get_formatted_prompt(self,inputs, use_image = True, **kwargs):
         questions = inputs['question']
         if "chosen" in inputs.keys():
             answers = inputs['chosen']
@@ -194,7 +198,6 @@ class VQADeepSeek(VQAModel):
     def generate_text(self,format_prompt, images, use_image = True, return_full_text=False,**kwargs):
         responses = []
         prepare_input_list = []
-        use_image = False # debug only
         for i in range(len(format_prompt)):
             if use_image:
                 prepare_input = self.processor(prompt=format_prompt[i],images = [images[i].convert("RGB")],force_batchify=False)

@@ -1,0 +1,126 @@
+model:
+  _target_: src.model.VQALlaVA
+  model_path: weights/llava-1.5-7B/
+  torch_dtype: float16
+  max_context_length: 4096
+  device: auto
+  trainable: frozen
+  generate_config:
+    type: GenerationConfig
+    return_full_text: false
+    use_cache: true
+    bos_token_id: 1
+    do_sample: false
+    eos_token_id: 2
+    pad_token_id: 32001
+    max_new_tokens: 2048
+FigStep:
+  _target_: src.dataset.FigStep
+  data_path: data/FigStep/
+  data_files: question/safebench.csv
+  split: train
+  question: question
+  ori_question: instruction
+  category: category_name
+  safe: false
+  scenario:
+  - Illegal Activity
+  - Hate Speech
+  - Malware Generation
+  - Physical Harm
+  - Fraud
+  - Adult Content
+  - Privacy Violation
+  prompt_type: harmless
+  sample: 128
+  seed: 0
+MMVet:
+  _target_: src.dataset.MMVet
+  data_path: data/MM-Vet/
+  data_files: data.json
+  split: train
+  question: question
+  chosen: answer
+  image: image
+  safe: true
+  sample: 128
+  seed: 0
+MMSafetyBench:
+  _target_: src.dataset.MMSafetyBench
+  data_path: data/MMSafetyBench_sampled/
+  split: test
+  safe: false
+  image_type: SD+TYPO
+  scenario:
+  - 01-Illegal_Activitiy
+  - 02-HateSpeech
+  - 03-Malware_Generation
+  - 04-Physical_Harm
+  - 05-EconomicHarm
+  - 06-Fraud
+  - 07-Sex
+  - 09-Privacy_Violence
+  sample: 300
+  seed: 0
+MMSafetyBench_benign:
+  _target_: src.dataset.MMSafetyBench
+  data_path: data/MMSafetyBench_benign/
+  split: test
+  safe: true
+  image_type: SD+TYPO
+  scenario:
+  - 01-Daily_Activitiy
+  - 02-Economics
+  - 03-Physical
+  - 04-Legal
+  - 05-Politics
+  - 06-Finance
+  - 07-Health
+  - 08-Sex
+  sample: 300
+  seed: 0
+VLSafe_harmful:
+  _target_: src.dataset.VLSafe
+  data_path: data/VLSafe_harmful
+  data_files: harmlessness_examine.jsonl
+  split: train
+  question: query
+  chosen: reference
+  image: image_id
+  COCO_img_path: data/VLSafe_harmful/images
+  safe: false
+  sample: 300
+  seed: 0
+VLSafe_normal:
+  _target_: src.dataset.VLSafe
+  data_path: data/VLSafe_normal
+  data_files: helpful_sampled.jsonl
+  split: train
+  image: image_id
+  COCO_img_path: data/VLSafe_normal/images
+  safe: true
+  sample: 300
+  seed: 0
+VLGuard:
+  _target_: src.dataset.VLGuard
+  data_path: data/VLGuard
+  split: test
+  question: question
+  chosen: answer
+  safe: safe
+  image: image
+  sample: 300
+  seed: 0
+train_dataset:
+  _target_: src.dataset.ConcatedDataset
+  dataset_list:
+  - ${MMSafetyBench}
+  - ${MMSafetyBench_benign}
+val_dataset: ${train_dataset}
+batch_size: 4
+seed: 0
+debug: true
+use_answer: false
+select_layer: -1
+select_token_index: -1
+n_components: 20

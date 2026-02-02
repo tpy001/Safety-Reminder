@@ -137,7 +137,7 @@ batch_size = 16
 
 
 evaluator = LLamaGuard3(
-     model_path="/data3/tangpeiyuan/LLM/weights/Llama3-Guard-8b/",
+     model_path="weights/Llama3-Guard-8b/",
      batchsize = batch_size
  )
 

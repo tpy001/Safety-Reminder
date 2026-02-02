@@ -337,7 +337,7 @@ def main(cfg) -> None:
         for i in tqdm(range(0, len(train_dataset), batch_size)):
             batch = train_dataset[i:i + batch_size]
     
-            output = model(batch, output_hidden_states=True,use_answer=use_answer,use_image=False)[1]
+            output = model(batch, output_hidden_states=True,use_answer=use_answer,use_image=False,truncate=False)[1]
 
             # 只取指定层和token
             hs_tuple = output if isinstance(output, tuple) else output.hidden_states

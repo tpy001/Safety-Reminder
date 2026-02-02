@@ -10,3 +10,5 @@ einops
 pandas
 tqdm
 huggingface_hub
+nanogcg
+# Only For BlueSuffix

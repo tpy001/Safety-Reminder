@@ -1,5 +1,5 @@
 _target_:  src.model.DRO_llava
-# pretrained_path: work_dirs/PT_len=4/prompt_embedding_iter_19.pth
+pretrained_path: results/DRO/llava/prompt_embedding_iter_17.pth
 model_path: weights/llava-1.5-7B/
 torch_dtype: float16
 max_context_length: 1024

@@ -15,7 +15,7 @@ from script.generate import generate_text
 from src.utils import set_seed
 import torch
 
-debug()
+# debug()
 class BaseTestJailbreakLlaVA:
     config_dir = "../configs/"
     config_name = "test.yaml"

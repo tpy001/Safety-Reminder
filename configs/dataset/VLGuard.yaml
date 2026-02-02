@@ -1,0 +1,10 @@
+VLGuard:
+    _target_: src.dataset.VLGuard
+    data_path: data/VLGuard
+    split: test
+    question: question
+    chosen: answer
+    safe: safe
+    image: image
+    # sample: 128
+    seed: 0

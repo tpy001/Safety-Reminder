@@ -20,6 +20,7 @@ from .llava import VQALlaVA,format_prompt,LlaVA_chat_template
 from transformers.models.llava.modeling_llava import LlavaCausalLMOutputWithPast
 import numpy as np
 from .llava import LlaVA_chat_template
+from .base_model import VQAModel
 
 def check_if_tokens_start_with_capital(
     token_ids,
@@ -177,6 +178,7 @@ class SAPTLlavaModel(LlavaForConditionalGeneration):
         selected_hidden = outputs.hidden_states[-1][:,-1]
         pred_safe = classification(selected_hidden,self.classfier).squeeze()
         threshold = 0.2
+        # threshold = 1.
         is_safe = pred_safe >= threshold 
         return is_safe
 
@@ -343,6 +345,9 @@ class SAPTLlavaModel(LlavaForConditionalGeneration):
         else:
             return input_ids
 
+    def forward_original(self,*args,**kwargs):
+        return LlavaForConditionalGeneration.forward(self,*args,**kwargs)
+    
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -604,6 +609,25 @@ class SAPTLlava(PromptTuning):
         else:
             return loss
     
+    def forward_new(self,inputs,use_image=True,output_hidden_states=False):
+        # Please ignore this function. This function is a temporary function used by script/HiddenStates/analyze_hidden_​​states.py.
+        batch_prompts,images =  self.get_formatted_prompt(inputs, use_image)
+        for i in range(len(batch_prompts)):
+            batch_prompts[i] = self.add_soft_prompt(batch_prompts[i],add_pos="last")
+        chosen_loss,hidden_states = self._forward(
+            batch_prompts, 
+            images=images,
+            # output_hidden_states=output_hidden_states,
+            output_hidden_states=True,
+            soft_prompt_id = self.soft_prompt_id,
+            soft_prompt_num = self.soft_prompt_num,
+            soft_prompt_embedding = self.prompt_embedding,)
+
+        if output_hidden_states:
+            return chosen_loss, hidden_states
+        else:
+            return chosen_loss
+
     def cal_cls_loss(
         self,
         batch_prompts_chosen,
@@ -789,4 +813,114 @@ class SAPTLlava(PromptTuning):
             if isinstance(images[0],str):
                 images = [Image.open(image_path) for image_path in images]
         return formatted_chosen, formatted_rejected, images
+
+    def forward_adaptive(self,inputs):
+        """
+            forward funtion for adaptive attack
+        """
+        def get_labels_new(prompts,substring,return_tensor=True):
+            def find_sublist_position(main_list, sub_list):
+                for i in range(len(main_list) - len(sub_list) + 1):
+                    # 检查从当前位置i开始的子列表是否与sub_list相同
+                    if main_list[i:i+len(sub_list)] == sub_list:
+                        return i + len(sub_list)   # 返回子列表结束位置的下一个位置
+                raise ValueError("子列表未在主列表中找到。")
+            
+            labels = []
+            # substring = 'ASSISTANT:'
+            substring_ids = self.processor.tokenizer.encode(substring)[1:]
+            for prompt in prompts:
+                if not isinstance(prompt,list):
+                    prompt = prompt.tolist()
+                position = find_sublist_position(prompt, substring_ids)
+                label  = [-100] * (position) + prompt[position:]
+                labels.append(label)
+            if return_tensor:
+                return torch.tensor(labels)
+            else:
+                return labels
+       
+        batch_prompts = format_prompt(self.tokenizer,inputs["question"],answers = inputs["chosen"],add_generation_prompt=True)
+        images = inputs["image"]
+
+
+        # max the prob of generate target string
+        inputs_new = self.processor(images=images, text=batch_prompts, padding=True, return_tensors="pt").to(self.device)
+        label_ids = get_labels_new(inputs_new['input_ids'],substring = self.assistant_tag).to(self.device)
+
+        image_token_id = getattr(self.processor.tokenizer, "image_token_id", None)
+        if image_token_id is None:
+            try:
+                image_token_id = self.model.config.image_token_index
+            except:
+                image_token_id = self.model.config.image_token_id
+        else:
+            raise ValueError("Image token not found in tokenizer.")
+        
+        inputs_new['input_ids'], inputs_new['attention_mask'], label_ids = self.truncate_around_image_token(
+            input_ids=inputs_new['input_ids'],
+            attention_mask=inputs_new['attention_mask'],
+            label_ids=label_ids,
+            max_length=self.max_context_length,
+            image_token_id=image_token_id,
+        )
+
+
+        outputs = self.model.forward_original(
+            **inputs_new,
+            return_dict=True,
+            labels = label_ids,
+            output_hidden_states=False,
+        )
+        
+        loss_target = outputs.loss
+
+        # 最大化误分类的损失
+        # 1. 首先，对于每个target answer，随机选择一个位置，取前半部分
+        target_string = inputs["chosen"]
+        partial_targets = []
+
+        for i in range(len(target_string)):
+            tokens = self.tokenizer.tokenize(target_string[i])
+            if len(tokens) < 2:
+                partial_targets.append(target_string[i])  # 太短不截断
+                continue
+
+            # 1. 随机选一个截断位置
+            cut_pos = random.randint(0, len(tokens)-1)  # 可以改成 len(tokens)-1 更随机
+            # cut_pos = len(tokens)-1  # 可以改成 len(tokens)-1 更随机
+
+            # 2. 取前半部分
+            truncated_tokens = tokens[:cut_pos]
+
+            # 3. 转回字符串
+            truncated_text = self.tokenizer.convert_tokens_to_string(truncated_tokens)
+            partial_targets.append(truncated_text)
+        inputs["chosen"] = partial_targets
+        # 2. 然后，构造带soft prompt 的 answer
+        batch_prompts = format_prompt(self.tokenizer,inputs["question"],answers = inputs["chosen"],add_generation_prompt=True)
+        batch_prompts = [ self.add_soft_prompt(batch_prompts[k],add_pos="last")  for k in range(len(batch_prompts))]
+        # 3. 提前 hidden states
+        chosen_loss,hidden_states = self._forward(
+                batch_prompts, 
+                images=images,
+                # output_hidden_states=output_hidden_states,
+                output_hidden_states=True,
+                soft_prompt_id = self.soft_prompt_id,
+                soft_prompt_num = self.soft_prompt_num,
+                soft_prompt_embedding = self.prompt_embedding,)
+        # 4. 计算分类损失
+        hidden_states = hidden_states[-1] # Last Layer, 
+        inputs["safe"] = torch.tensor([True]*len(inputs["question"]))
+        cls_loss = self.cal_cls_loss(
+            batch_prompts,
+            images = images,
+            hidden_states = hidden_states,
+            labels = inputs["safe"]
+        )
+        k = 0.2
+        return loss_target + k * cls_loss
+
+
+     
 

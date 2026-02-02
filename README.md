@@ -32,7 +32,7 @@ pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https
 pip install -r requirements.txt
 ```
 
-## Datasets Download
+## Download Dataset
 #### 1. FigStep
 download the images and question from https://github.com/ThuCCSLab/FigStep/tree/main/data 
 You can git clone https://github.com/ThuCCSLab/FigStep.git and then move the images and questios to the data/FigStep folder.
@@ -89,8 +89,19 @@ The final folder structure should be:
 #### 3. SPA-VL
 Please download the dataset from https://huggingface.co/datasets/sqrti/SPA-VL
 
+## Download VLMs
+You can use the following scripts to download various Vision-Language Models (VLMs). 
 
+| Model Name        | Download Script                     |
+|------------------|------------------------------------|
+| LLaVA-1.5-7B             | `script/download_models/llava-1.5-7B.sh`                 |
+| DeepSeek-VL-7B       | `script/download_models/deepseek_vl_7B.sh`           |
+| Qwen2-VL-7B          | `script/download_models/Qwen2-VL-7B.sh`              |
 
+If you want to perform ASR evaluation, you will also need to download **Llama-Guard-3**.
+```
+bash script/download_models/llama-guard3.sh
+```
 ## Scripts
 ## 1. Text Generation and Safety Evaluation
 Basic Generation

@@ -61,7 +61,7 @@ def build_qwen2_chat_template(question: str, answer = None,use_image: bool = Tru
     return conversation
     
 
-def format_prompt(tokenizer, questions, answers = None,add_generation_prompt = True, use_image = True, ):
+def format_prompt(tokenizer, questions, answers = None,add_generation_prompt = True, use_image = True, add_eos_token=False):
     """
     apply chat template to questions.
     return a list of prompt string
@@ -76,7 +76,19 @@ def format_prompt(tokenizer, questions, answers = None,add_generation_prompt = T
             conversation = build_qwen2_chat_template(questions[i],use_image=use_image)
         prompt = tokenizer.apply_chat_template(conversation, tokenize=False,add_generation_prompt=add_generation_prompt)   
         batch_prompts.append(prompt)
+
+    if not add_eos_token:
+        for i in range(len(batch_prompts)):
+            batch_prompts[i] = batch_prompts[i].strip()
+            if batch_prompts[i].endswith(tokenizer.eos_token):
+                batch_prompts[i] = batch_prompts[i][:-len(tokenizer.eos_token)] # Only remove the last eos token.
+                batch_prompts[i] = batch_prompts[i].strip(" ")
     return batch_prompts
+    # if not add_eos_token:
+    #     for i in range(len(batch_prompts)):
+    #         batch_prompts[i] = batch_prompts[i].replace(tokenizer.eos_token,"")
+    #         batch_prompts[i] = batch_prompts[i].strip(" ")
+    # return batch_prompts
 
 
 
@@ -167,7 +179,6 @@ class VQAQwen2VL(VQAModel):
             self.model.language_model.train()
         elif self.trainable == 'frozen':
             self.model.eval()
-
 
     def get_labels(self,prompts,substring,return_tensor=True):
         def find_sublist_position(main_list, sub_list):

@@ -1,0 +1,136 @@
+model:
+  _target_: src.model.SAPTQwen2VL
+  pretrained_path: work_dirs/SAPT_Qwen2VL/prompt_embedding_iter_28.pth
+  model_path: weights/QWen2-VL-7B/
+  torch_dtype: bfloat16
+  max_context_length: 4096
+  device: auto
+  trainable: frozen
+  min_pixels: 12544
+  max_pixels: 200704
+  generate_config:
+    type: GenerationConfig
+    bos_token_id: 151643
+    pad_token_id: 151643
+    eos_token_id:
+    - 151645
+    - 151643
+    return_full_tex: false
+    use_cache: true
+    do_sample: false
+    max_new_tokens: 256
+  peft_config:
+    num: 4
+    dim: 3584
+    prompt_text: <soft_prompt>
+    init_text: Refuse if partial output is unsafe; else, continue helpfully.
+FigStep:
+  _target_: src.dataset.FigStep
+  data_path: data/FigStep/
+  data_files: question/safebench.csv
+  split: train
+  question: question
+  ori_question: instruction
+  category: category_name
+  safe: false
+  scenario:
+  - Illegal Activity
+  - Hate Speech
+  - Malware Generation
+  - Physical Harm
+  - Fraud
+  - Adult Content
+  - Privacy Violation
+  prompt_type: harmless
+  sample: 128
+  seed: 0
+MMVet:
+  _target_: src.dataset.MMVet
+  data_path: data/MM-Vet/
+  data_files: data.json
+  split: train
+  question: question
+  chosen: answer
+  image: image
+  safe: true
+  sample: 128
+  seed: 0
+MMSafetyBench:
+  _target_: src.dataset.MMSafetyBench
+  data_path: data/MMSafetyBench_sampled/
+  split: test
+  safe: false
+  image_type: SD+TYPO
+  scenario:
+  - 01-Illegal_Activitiy
+  - 02-HateSpeech
+  - 03-Malware_Generation
+  - 04-Physical_Harm
+  - 05-EconomicHarm
+  - 06-Fraud
+  - 07-Sex
+  - 09-Privacy_Violence
+  sample: 300
+  seed: 0
+MMSafetyBench_benign:
+  _target_: src.dataset.MMSafetyBench
+  data_path: data/MMSafetyBench_benign/
+  split: test
+  safe: true
+  image_type: SD+TYPO
+  scenario:
+  - 01-Daily_Activitiy
+  - 02-Economics
+  - 03-Physical
+  - 04-Legal
+  - 05-Politics
+  - 06-Finance
+  - 07-Health
+  - 08-Sex
+  sample: 300
+  seed: 0
+VLSafe_harmful:
+  _target_: src.dataset.VLSafe
+  data_path: data/VLSafe_harmful
+  data_files: harmlessness_examine.jsonl
+  split: train
+  question: query
+  chosen: reference
+  image: image_id
+  COCO_img_path: data/VLSafe_harmful/images
+  safe: false
+  sample: 300
+  seed: 0
+VLSafe_normal:
+  _target_: src.dataset.VLSafe
+  data_path: data/VLSafe_normal
+  data_files: helpful_sampled.jsonl
+  split: train
+  image: image_id
+  COCO_img_path: data/VLSafe_normal/images
+  safe: true
+  sample: 300
+  seed: 0
+VLGuard:
+  _target_: src.dataset.VLGuard
+  data_path: data/VLGuard
+  split: test
+  question: question
+  chosen: answer
+  safe: safe
+  image: image
+  sample: 300
+  seed: 0
+train_dataset:
+  _target_: src.dataset.ConcatedDataset
+  dataset_list:
+  - ${MMSafetyBench}
+  - ${MMSafetyBench_benign}
+val_dataset: ${train_dataset}
+batch_size: 4
+seed: 0
+debug: true
+use_answer: false
+select_layer: -1
+select_token_index: -1
+n_components: 20

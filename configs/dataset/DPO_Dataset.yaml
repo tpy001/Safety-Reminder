@@ -18,7 +18,7 @@ utility_data:
     data_files: helpful_sampled.jsonl  # test dataset
     split: train
     image: image_id
-    COCO_img_path: data/VLSafe/images
+    COCO_img_path: data/VLSafe_normal/images
     safe: True
     sample: 256
     seed: 0

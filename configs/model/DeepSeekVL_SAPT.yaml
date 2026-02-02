@@ -1,0 +1,25 @@
+_target_:  src.model.SAPTDeepSeekVL
+pretrained_path: results/DeepSeekVL_SAPT/SAPT_new/prompt_embedding_iter_10.pth
+model_path: weights/DeepSeek_VL/
+torch_dtype: bfloat16
+max_context_length: 1024
+device: auto
+trainable: frozen
+generate_config:
+    type: GenerationConfig
+    return_full_text: false
+    use_cache: true
+    bos_token_id: 100000
+    do_sample: false
+    eos_token_id: 100001
+    pad_token_id: 100001
+    # temperature: 0.6
+    # top_p: 0.9
+    max_new_tokens: 256
+
+
+peft_config:
+    num: 4
+    dim: 4096
+    prompt_text: <soft_prompt>
+    init_text: Refuse if partial output is unsafe; else, continue helpfully.

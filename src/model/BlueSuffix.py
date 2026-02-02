@@ -133,17 +133,18 @@ class BlueSuffixLlava(VQALlaVA):
 
         # Step2: Image purfier
         torch.cuda.empty_cache()
-        images = _inputs["image"]
-        purified_image = purify_image(images)
-        _inputs["image"] = purified_image
+        if "image" in _inputs.keys():
+            images = _inputs["image"]
+            purified_image = purify_image(images)
+            _inputs["image"] = purified_image
 
-        torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
         # Step3: Generate blue suffix using pretrained GPT2 model
-        questions = _inputs['question']
-        suffixes =   self.suffix_generator.generate_suffix_batch(questions, max_new_tokens=10)
-        _inputs['question'] = [f"{question} {suffix}" for question, suffix in zip(questions, suffixes)]
+        # questions = _inputs['question']
+        # suffixes =   self.suffix_generator.generate_suffix_batch(questions, max_new_tokens=10)
+        # _inputs['question'] = [f"{question} {suffix}" for question, suffix in zip(questions, suffixes)]
 
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         # Step4: Text generation
         formatted_prompt, images = self.get_formatted_prompt(_inputs, use_image)
         return self.generate_text(formatted_prompt, images=images, **kwargs)
@@ -195,17 +196,18 @@ class BlueSuffixQwen2VL(VQAQwen2VL):
 
         # Step2: Image purfier
         torch.cuda.empty_cache()
-        images = _inputs["image"]
-        purified_image = purify_image(images)
-        _inputs["image"] = purified_image
+        if "image" in inputs.keys():
+            images = _inputs["image"]
+            purified_image = purify_image(images)
+            _inputs["image"] = purified_image
 
-        torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
         # Step3: Generate blue suffix using pretrained GPT2 model
-        questions = _inputs['question']
-        suffixes =   self.suffix_generator.generate_suffix_batch(questions, max_new_tokens=10)
-        _inputs['question'] = [f"{question} {suffix}" for question, suffix in zip(questions, suffixes)]
+        # questions = _inputs['question']
+        # suffixes =   self.suffix_generator.generate_suffix_batch(questions, max_new_tokens=10)
+        # _inputs['question'] = [f"{question} {suffix}" for question, suffix in zip(questions, suffixes)]
 
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         # Step4: Text generation
         formatted_prompt, images = self.get_formatted_prompt(_inputs, use_image)
         return self.generate_text(formatted_prompt, images=images, **kwargs)

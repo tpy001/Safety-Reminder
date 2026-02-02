@@ -148,12 +148,12 @@ print("\n--- Starting Safety Evaluation and Sampling ---")
 batch_size = 16
 
 # evaluator = LlamaGuard3Vision(
-#     model_path="/data3/tangpeiyuan/LLM/weights/LlamaGuard3Vision/",
+#     model_path="weights/LlamaGuard3Vision/",
 #     batchsize = batch_size
 # )
 
 evaluator = LLamaGuard3(
-     model_path="/data3/tangpeiyuan/LLM/weights/Llama3-Guard-8b/",
+     model_path="weights/Llama3-Guard-8b/",
      batchsize = batch_size
  )
 

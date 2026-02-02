@@ -136,53 +136,53 @@ class SAPT_Runner:
                 generated_text = []
                 
                 # validation on harmful dataset
-                torch.cuda.empty_cache()
-                self.model.eval()  # Set model to evaluation mode
-                with torch.no_grad():
-                    for k in range(0, len(self.val_harmful_dataset), self.val_batchsize):
-                        inputs = self.val_harmful_dataset[k:k + self.val_batchsize]
-                        inputs.pop("chosen")
-                        res = self.model.generate(inputs)
-                        generated_text.extend(res)
+                # torch.cuda.empty_cache()
+                # self.model.eval()  # Set model to evaluation mode
+                # with torch.no_grad():
+                #     for k in range(0, len(self.val_harmful_dataset), self.val_batchsize):
+                #         inputs = self.val_harmful_dataset[k:k + self.val_batchsize]
+                #         inputs.pop("chosen")
+                #         res = self.model.generate(inputs)
+                #         generated_text.extend(res)
 
-                for j in range(4):
-                    logger.info("Question %d: %s" % (j,self.val_harmful_dataset['question'][j]))
-                    logger.info("chosen %d: %s" % (j,self.val_harmful_dataset['chosen'][j]))
-                    if "rejected" in self.val_harmful_dataset:
-                        logger.info("rejected %d: %s" % (j,self.val_harmful_dataset['rejected'][j]))
-                    logger.info("Generated text %d: %s" % (j,generated_text[j]))
-                torch.cuda.empty_cache()
+                # for j in range(4):
+                #     logger.info("Question %d: %s" % (j,self.val_harmful_dataset['question'][j]))
+                #     logger.info("chosen %d: %s" % (j,self.val_harmful_dataset['chosen'][j]))
+                #     if "rejected" in self.val_harmful_dataset:
+                #         logger.info("rejected %d: %s" % (j,self.val_harmful_dataset['rejected'][j]))
+                #     logger.info("Generated text %d: %s" % (j,generated_text[j]))
+                # torch.cuda.empty_cache()
 
-                with torch.no_grad():
-                    safety_pred = self.jailbreak_evaluator.judge(generated_text,data={"question":self.val_harmful_dataset["question"]})
+                # with torch.no_grad():
+                #     safety_pred = self.jailbreak_evaluator.judge(generated_text,data={"question":self.val_harmful_dataset["question"]})
 
-                ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
-                logger.info(f"Attack success rate: {ASR:.4f}")
-                self.jailbreak_evaluator.destroy()
-                torch.cuda.empty_cache()
+                # ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
+                # logger.info(f"Attack success rate: {ASR:.4f}")
+                # self.jailbreak_evaluator.destroy()
+                # torch.cuda.empty_cache()
 
-                generated_text = []
-                # validation on benign dataset
-                with torch.no_grad():
-                    for k in range(0, len(self.val_normal_dataset), self.val_batchsize):
-                        inputs = self.val_normal_dataset[k:k + self.val_batchsize]
-                        inputs.pop("chosen")
-                        res = self.model.generate(inputs)
-                        generated_text.extend(res)
+                # generated_text = []
+                # # validation on benign dataset
+                # with torch.no_grad():
+                #     for k in range(0, len(self.val_normal_dataset), self.val_batchsize):
+                #         inputs = self.val_normal_dataset[k:k + self.val_batchsize]
+                #         inputs.pop("chosen")
+                #         res = self.model.generate(inputs)
+                #         generated_text.extend(res)
 
-                for j in range(4):
-                    logger.info("Question benign %d: %s" % (j,self.val_normal_dataset['question'][j]))
-                    logger.info("chosen benign %d: %s" % (j,self.val_normal_dataset['chosen'][j]))
-                    if "rejected" in self.val_normal_dataset:
-                        logger.info("rejected benign %d: %s" % (j,self.val_normal_dataset['rejected'][j]))
-                    logger.info("Generated text benign %d: %s" % (j,generated_text[j]))
-                torch.cuda.empty_cache()
+                # for j in range(4):
+                #     logger.info("Question benign %d: %s" % (j,self.val_normal_dataset['question'][j]))
+                #     logger.info("chosen benign %d: %s" % (j,self.val_normal_dataset['chosen'][j]))
+                #     if "rejected" in self.val_normal_dataset:
+                #         logger.info("rejected benign %d: %s" % (j,self.val_normal_dataset['rejected'][j]))
+                #     logger.info("Generated text benign %d: %s" % (j,generated_text[j]))
+                # torch.cuda.empty_cache()
 
-                with torch.no_grad():
-                    safety_pred = self.normal_evaluator.judge(generated_text,data={"question":self.val_normal_dataset["question"]})
+                # with torch.no_grad():
+                #     safety_pred = self.normal_evaluator.judge(generated_text,data={"question":self.val_normal_dataset["question"]})
             
-                ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
-                logger.info(f"Attack success rate benign: {ASR:.4f}")
+                # ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
+                # logger.info(f"Attack success rate benign: {ASR:.4f}")
                 torch.cuda.empty_cache()
 
                 self.model.train(True)

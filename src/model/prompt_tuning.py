@@ -11,8 +11,12 @@ from typing import Optional, Tuple, Union, List
 from .base_model import VQAModel
 from .llava import VQALlaVA
 from .Qwen2VL import VQAQwen2VL
+from .DeepSeekVL import VQADeepSeek
 from transformers.generation import GenerationConfig
 from transformers.cache_utils import *
+from deepseek_vl.models import MultiModalityCausalLM
+from einops import rearrange
+
 
 from transformers.generation.logits_process import LogitsProcessorList
 from transformers.generation.stopping_criteria import StoppingCriteriaList  
@@ -479,6 +483,61 @@ class PromptTuningQwen2VLModel(Qwen2VLForConditionalGeneration):
             rope_deltas=rope_deltas,
         ) 
 
+class PromptTuningDeepSeekVL(MultiModalityCausalLM):
+     def prepare_inputs_embeds(
+        self,
+        input_ids: torch.LongTensor,
+        pixel_values: torch.FloatTensor,
+        images_seq_mask: torch.LongTensor,
+        images_emb_mask: torch.LongTensor,
+        soft_prompt_id = None,
+        soft_prompt_num = None,
+        soft_prompt_embedding = None,
+        use_original_sample = False, # Unused, kept for compatibility with transformers library
+        # use_original_forward = False,
+        **kwargs,
+    ):
+        with torch.no_grad():
+            if pixel_values.numel() > 0:
+                bs, n = pixel_values.shape[0:2]
+                images = rearrange(pixel_values, "b n c h w -> (b n) c h w")
+                # [b x n, T2, D]
+                images_embeds = self.aligner(self.vision_model(images))
+
+                # [b x n, T2, D] -> [b, n x T2, D]
+                images_embeds = rearrange(images_embeds, "(b n) t d -> b (n t) d", b=bs, n=n)
+                # [b, n, T2] -> [b, n x T2]
+                images_emb_mask = rearrange(images_emb_mask, "b n t -> b (n t)")
+
+            # [b, T, D]
+            input_ids[input_ids < 0] = 0  # ignore the image embeddings
+            inputs_embeds = self.language_model.get_input_embeddings()(input_ids)
+
+            # replace with the image embeddings
+            if pixel_values.numel() > 0:
+                # inputs_embeds[images_seq_mask] = images_embeds[images_emb_mask]
+                # image_id = self.tokenizer.encode("<image_placeholder>")[1]  # shape: [seq_len]
+                image_id = 100015 # hard-code
+                special_image_mask = (  
+                    (input_ids == image_id)
+                    .unsqueeze(-1)                    # [bs, seq_len, 1]
+                    .expand_as(inputs_embeds)         # [bs, seq_len, hidden_dim]
+                    .to(inputs_embeds.device)
+                )
+                inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, images_embeds[images_emb_mask])
+
+        if soft_prompt_id is not None and soft_prompt_num is not None and soft_prompt_embedding is not None:
+            index = torch.arange(soft_prompt_num)
+            soft_prompt_embeddings = soft_prompt_embedding(index).expand(inputs_embeds.shape[0], soft_prompt_num, -1).to(inputs_embeds.device,inputs_embeds.dtype)
+            soft_prompt_mask = (
+                (input_ids == soft_prompt_id)
+                .unsqueeze(-1)
+                .expand_as(inputs_embeds)
+                .to(inputs_embeds.device)
+            )
+            inputs_embeds = inputs_embeds.masked_scatter(soft_prompt_mask,soft_prompt_embeddings )
+        return inputs_embeds
+     
 
 class PromptTuning(VQAModel):
     '''
@@ -588,3 +647,35 @@ class PromptTuningLlava(PromptTuning,VQALlaVA):
 
 class PromptTuningQwen2VL(PromptTuning,VQAQwen2VL):
     model_cls = PromptTuningQwen2VLModel
+
+class PromptTuningDeepSeekVL(PromptTuning,VQADeepSeek):
+    model_cls = PromptTuningDeepSeekVL
+
+    def add_soft_prompt(self,prompt,add_pos="first"):
+        insert_pos = add_pos
+        soft_prompt = "".join([self.soft_prompt_text]*self.soft_prompt_num)
+        if insert_pos == 'first':
+            prompt = soft_prompt.rstrip() + " " + prompt.lstrip()
+        elif insert_pos == 'last':
+            prompt = prompt.rstrip() + "" + soft_prompt.lstrip()
+        else:
+            raise ValueError("insert_pos must be 'first' or 'last'")
+        return prompt
+    
+    def generate(self,inputs, use_image = True,return_full_text=False,**kwargs):
+        batch_prompts, images = self.get_formatted_prompt(inputs, use_image)
+        batch_prompts = [ self.add_soft_prompt(prompt,add_pos="first") for prompt in batch_prompts]
+        return VQADeepSeek.generate_text(
+            self,
+            format_prompt = batch_prompts, 
+            images=images,
+            return_full_text=return_full_text,
+            soft_prompt_id = self.soft_prompt_id,
+            soft_prompt_num = self.soft_prompt_num,
+            soft_prompt_embedding = self.prompt_embedding,
+            use_image = use_image,
+            **kwargs
+        )
+    
+    
+    

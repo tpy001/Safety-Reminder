@@ -1,41 +1,38 @@
 from hydra import initialize, compose
 from ..utils import set_seed,pretty_dict
 from hydra.utils import instantiate
-from loguru import logger
 from omegaconf import OmegaConf
 import torch
 from tqdm import tqdm
-logger.add(
-    sink='train.log',  
-    level='INFO',
-    rotation='00:00', 
-    compression='zip',        
-    encoding='utf-8',  
-    backtrace=True,
-    enqueue=True,
-    format= "{level} [{file}:{line}] {message}",
-    mode='w'
-) 
 import os
+import hydra
 
 
-class Runner:
-    def __init__(self, config_dir,config_name):
+
+class DRO_runner:
+    def __init__(self, 
+                 model,
+                 training_set,
+                 val_harmful_dataset,
+                 val_normal_dataset,
+                 jailbreak_evaluator,
+                 normal_evaluator,
+                 train_config
+                 ):
         """
             Initializes the runner.
             Args:
                 config_path: the path for the config file.
         """
 
-        with initialize(config_path=str(config_dir), version_base=None):
-            cfg = compose(config_name=config_name)
-            self.train_config = instantiate(cfg.train_config)
-            self.model = instantiate(cfg.model)
-            self.training_set = instantiate(cfg.training_set) 
-            self.val_dataset = instantiate(cfg.val_dataset)
-            self.evaluator = instantiate(cfg.evaluator) 
+        self.train_config = train_config
+        self.model = model
+        self.training_set = training_set
+        self.val_harmful_dataset = val_harmful_dataset
+        self.val_normal_dataset = val_normal_dataset
 
-        logger.info(pretty_dict(cfg))
+        self.jailbreak_evaluator = jailbreak_evaluator
+        self.normal_evaluator = normal_evaluator
 
         # Step1: Set seed
         self.seed = self.train_config.get('seed') or 0
@@ -54,15 +51,16 @@ class Runner:
             num_workers=2,
         )
 
-        self.val_dataloader = torch.utils.data.DataLoader(
-            self.val_dataset,
-            batch_size=self.val_batchsize,
-            shuffle=False,
-            num_workers=2,
-        )
+
+        # self.val_dataloader = torch.utils.data.DataLoader(
+        #     self.val_dataset,
+        #     batch_size=self.val_batchsize,
+        #     shuffle=False,
+        #     num_workers=2,
+        # )
 
         # Step4: Build optimizer
-        self.optim_cfg = OmegaConf.to_container(cfg.train_config.get('optimizer'), resolve=True) 
+        self.optim_cfg = OmegaConf.to_container(self.train_config.get('optimizer'), resolve=True) 
         if self.optim_cfg is not None:
             optimzer_cls = self.optim_cfg.pop("type")
             if optimzer_cls == "AdamW":
@@ -70,11 +68,11 @@ class Runner:
             else:
                 raise ValueError("Unsupported optimizer type: %s" % optimzer_cls)
 
-        logger.info("Training dataset size: %d" % len(self.training_set))
-        logger.info("Val dataset size: %d" % len(self.val_dataset))
+        print("Training dataset size: %d" % len(self.training_set))
+        print("Val dataset size: %d" % len(self.val_harmful_dataset))
         
         # 4. build lr_schedule
-        lr_schedule = cfg.train_config.get('lr_schedule')
+        lr_schedule = self.train_config.get('lr_schedule')
         if lr_schedule is not None:
             raise NotImplementedError("lr_schedule is not implemented yet.")
      
@@ -101,53 +99,96 @@ class Runner:
 
     def train(self):
         self.model.train(True)  # Set model to training mode
+
         epoch = self.train_config.get('epoch')
-        val_interval = self.train_config.get('val_interval')
-        save_interval = self.train_config.get('save_interval')
-        save_path = self.train_config.get('save_path')
+
+        output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+        save_path = output_dir
+
         assert epoch is not None, "Please specify the number of epoch in the training_cfg"
-        
+
         for i in range(epoch):
             with tqdm(total=len(self.train_loader), desc="Epoch %d" % (i)) as pbar:
                 self.model.zero_grad()
                 for iter, batch_inputs in enumerate(self.train_loader):
                     self.model.zero_grad()
                     loss = self.model(batch_inputs)
-                    loss = loss.float()
+                    if isinstance(loss,dict):
+                        cls_loss = loss["cls_loss"].float()
+                        lm_loss = loss["lm_loss"].float()
+                        loss = loss["total"].float()
+                    else:
+                        loss = loss.float()
                     loss.backward()
                     self.optimizer.step()
                     
                     pbar.update(1)  
-                    pbar.set_postfix(loss=loss.item())  # 在进度条右侧显示损失值
+                    pbar.set_postfix(
+                        cls_loss=cls_loss.item(),
+                        lm_loss=lm_loss.item(),
+                        total_loss=loss.item()  
+                    )
+
                     
-                    if iter % val_interval == 0 and iter > 0:
-                        logger.info("Iter: %d, Loss: %f" % (i, loss.item()))
-                        logger.info("Iter: %d\n" % (iter))
-                        generated_text = []
-                        for j in tqdm(range(0, len(self.val_dataset), self.val_batchsize), total=len(self.val_dataset) // self.val_batchsize, desc="Validating"):
-                            torch.cuda.empty_cache()
-                            self.model.eval()  # Set model to evaluation mode
-                            with torch.no_grad():
-                                outputs = self.model.generate(self.val_dataset[j:j+self.val_batchsize])
-                                generated_text.extend(outputs)
+                # valiadation on training set
+                # print("Iter: %d, Loss: %f" % (i, loss.item()))
+                print("Iter: %d, cls_loss: %f, lm_loss: %f" % (i, cls_loss.item(), lm_loss.item()))
+                generated_text = []
+                
+                # validation on harmful dataset
+                torch.cuda.empty_cache()
+                self.model.eval()  # Set model to evaluation mode
+                with torch.no_grad():
+                    for k in range(0, len(self.val_harmful_dataset), self.val_batchsize):
+                        inputs = self.val_harmful_dataset[k:k + self.val_batchsize]
+                        inputs.pop("chosen")
+                        res = self.model.generate(inputs)
+                        generated_text.extend(res)
 
-                        for j in range(4):
-                            logger.info("Question %d: %s" % (j,self.val_dataset[j]['question']))
-                            logger.info("Reference %d: %s" % (j,self.val_dataset[j]['answer']))
-                            logger.info("Generated text %d: %s" % (j,generated_text[j]))
-                        torch.cuda.empty_cache()
+                for j in range(4):
+                    print("Question %d: %s" % (j,self.val_harmful_dataset['question'][j]))
+                    print("chosen %d: %s" % (j,self.val_harmful_dataset['chosen'][j]))
+                    if "rejected" in self.val_harmful_dataset:
+                        print("rejected %d: %s" % (j,self.val_harmful_dataset['rejected'][j]))
+                    print("Generated text %d: %s" % (j,generated_text[j]))
+                torch.cuda.empty_cache()
 
-                        with torch.no_grad():
-                            safety_pred = self.evaluator.judge(generated_text,data={"question":self.val_dataset["question"]})
+                with torch.no_grad():
+                    safety_pred = self.jailbreak_evaluator.judge(generated_text,data={"question":self.val_harmful_dataset["question"]})
 
-                        ASR = sum(1 for pred in safety_pred if pred == "false") / len(safety_pred)
-                        logger.info(f"Attack success rate: {ASR:.4f}")
-                        self.evaluator.destroy()
-                        torch.cuda.empty_cache()
-                        self.model.train(True)
-                    
-                    if iter % save_interval == 0:
-                        self.model.save_model(os.path.join(save_path, 'prompt_embedding_iter_{}.pth'.format(i)))
+                ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
+                print(f"Attack success rate: {ASR:.4f}")
+                self.jailbreak_evaluator.destroy()
+                torch.cuda.empty_cache()
+
+                generated_text = []
+                # validation on benign dataset
+                with torch.no_grad():
+                    for k in range(0, len(self.val_normal_dataset), self.val_batchsize):
+                        inputs = self.val_normal_dataset[k:k + self.val_batchsize]
+                        inputs.pop("chosen")
+                        res = self.model.generate(inputs)
+                        generated_text.extend(res)
+
+                for j in range(4):
+                    print("Question benign %d: %s" % (j,self.val_normal_dataset['question'][j]))
+                    print("chosen benign %d: %s" % (j,self.val_normal_dataset['chosen'][j]))
+                    if "rejected" in self.val_normal_dataset:
+                        print("rejected benign %d: %s" % (j,self.val_normal_dataset['rejected'][j]))
+                    print("Generated text benign %d: %s" % (j,generated_text[j]))
+                torch.cuda.empty_cache()
+
+                with torch.no_grad():
+                    safety_pred = self.normal_evaluator.judge(generated_text,data={"question":self.val_normal_dataset["question"]})
+            
+                ASR = sum(1 for pred in safety_pred if pred.lower() == "false") / len(safety_pred)
+                print(f"Attack success rate benign: {ASR:.4f}")
+                torch.cuda.empty_cache()
+
+                self.model.train(True)
+
+                self.model.save_model(os.path.join(save_path, 'prompt_embedding_iter_{}.pth'.format(i)))
+
 
     def generate(self):
         responses= []
@@ -160,3 +201,4 @@ class Runner:
 
     def evaluation(self, responses):
         res = self.evaluator.evaluation(responses,self.test_dataset)
+

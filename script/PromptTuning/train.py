@@ -1,30 +1,30 @@
-"""
-Test the jailbreak success rate on FigStep dataset."
-"""
 import sys
 import os
+import argparse
+from pathlib import Path
+
+# Add project root to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-import hydra
-from omegaconf import OmegaConf
-from hydra import initialize, compose
 from src.utils import debug
-from pathlib import Path
-from hydra.utils import instantiate
-from script.generate import generate_text
-from src.utils import set_seed
-import torch
 from src.runner.runner import Runner
 
-# debug()
+# Disable tokenizer parallelism warnings
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-config_dir = "../../configs/"
-config_name = "llava_PT_training.yaml"
-config = None
-runner = None
+def main():
+    parser = argparse.ArgumentParser(description="Run jailbreak testing on the FigStep dataset.")
+    parser.add_argument("--config_dir", type=str, default="../../configs/", help="Path to the configuration directory.")
+    parser.add_argument("--config_name", type=str, default="llava_PT_training.yaml", help="Name of the configuration file.")
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode.")
+    args = parser.parse_args()
 
-runner = Runner(config_dir,config_name)
-    
+    if args.debug:
+        debug()
 
-runner.train()
+    # Initialize the Runner and start training
+    runner = Runner(args.config_dir, args.config_name)
+    runner.train()
+
+if __name__ == "__main__":
+    main()

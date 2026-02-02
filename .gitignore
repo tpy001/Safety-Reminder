@@ -195,10 +195,14 @@ cython_debug/
 
 
 .vscode
-assets/
+# assets/
 data/
 downloaded_USB_dataset/
 results/
 work_dirs/
 outputs
 doc/
+multirun/
+hidden_newest/
+data_prepocess/
+assets/

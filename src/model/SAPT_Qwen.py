@@ -747,6 +747,31 @@ class SAPTQwen2VL(PromptTuning):
         else:
             return first_generated_text
     
+    def forward_new(self, inputs,use_image=True,output_hidden_states=False):
+        # Please ignore this function. This function is a temporary function used by script/HiddenStates/analyze_hidden_​​states.py.
+        batch_prompts_chosen, images = self.get_formatted_prompt(inputs, use_image)
+        for i in range(len(batch_prompts_chosen)):
+            batch_prompts_chosen[i] = self.add_soft_prompt(batch_prompts_chosen[i],add_pos="last")
+        try:
+            chosen_loss,hidden_states = self._forward(
+                batch_prompts_chosen.copy(), 
+                images=images,
+                # output_hidden_states=output_hidden_states,
+                output_hidden_states=True,
+                soft_prompt_id = self.soft_prompt_id,
+                soft_prompt_num = self.soft_prompt_num,
+                soft_prompt_embedding = self.prompt_embedding,)
+        except:
+            pass
+            
+        loss = 0
+        if output_hidden_states:
+            return loss, hidden_states
+        else:
+            return loss
+    
+    
+    
     def get_formatted_prompt(self,inputs, use_image = True):
         questions = inputs['question']
         if "chosen" in inputs.keys():

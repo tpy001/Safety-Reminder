@@ -3,7 +3,8 @@ batch_size: 16
 seed: 0
 debug: False
 defaults:
-  - model: llava_7b
+  # - model: llava_7b
+  - model: Qwen2VL
   - evaluator: LLamaGuard3  
   - dataset: FigStep
   - _self_

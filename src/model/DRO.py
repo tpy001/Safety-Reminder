@@ -1,7 +1,8 @@
-from .prompt_tuning import PromptTuningLlava, PromptTuningQwen2VL
+from .prompt_tuning import PromptTuningLlava, PromptTuningQwen2VL,PromptTuningDeepSeekVL
 import torch
 import numpy as np
 import torch.nn.functional as F
+from PIL import Image
 
 def classification(hidden_states: torch.Tensor, classfier_data: dict, top_m = 4,return_projected_data=False,use_sigmoid=True) -> torch.Tensor:
     device = hidden_states.device  
@@ -130,6 +131,103 @@ class DRO_Qwen2VL(PromptTuningQwen2VL):
 
         new_hidden_states = outputs.hidden_states[-1][:,-1]
 
+        harmfulness_logits= classification(new_hidden_states,self.harmful_classfier_data,top_m=4,use_sigmoid=False).squeeze(-1)
+        refusal_logits = classification(new_hidden_states,self.refusal_classfier_data,top_m=4,use_sigmoid=False).squeeze(-1)
+
+        harmful_diff = harmfulness_logits - base_harmful_logits
+        refusal_diff = refusal_logits - base_refusal_logits
+
+
+        harmfulness_loss = F.binary_cross_entropy_with_logits(harmful_diff, labels.float().to(harmfulness_logits.device))
+        refusal_loss = F.binary_cross_entropy_with_logits(refusal_diff,  (1 - labels.float()).to(refusal_logits.device))
+
+
+        base_transformed = classification(base_hidden_states,self.harmful_classfier_data,top_m=4,return_projected_data=True,use_sigmoid=False)[1]
+        new_transformed = classification(new_hidden_states,self.harmful_classfier_data,top_m=4,return_projected_data=True,use_sigmoid=False)[1]
+        norm_loss = torch.mean((new_transformed - base_transformed)**2)
+        
+        return {
+            "harmfulness_loss": harmfulness_loss,
+            "refusal_loss": refusal_loss,
+            "norm_loss": norm_loss,
+            "total_loss":harmfulness_loss + refusal_loss * 1e-2 + norm_loss * 1e-3
+        }
+
+
+class DRO_DeepSeekVL(PromptTuningDeepSeekVL):
+    PCA_DIM = 4
+
+    def __init__(self, harmful_classfier_path, refusal_classfier_path, *args, **kwargs):
+        super().__init__(*args,**kwargs)
+        self.harmful_classfier_data = np.load(harmful_classfier_path)
+        self.refusal_classfier_data = np.load(refusal_classfier_path)
+
+
+    def forward(self,inputs,use_image=True,output_hidden_states=False):
+        inputs.pop("chosen")
+        formatted_prompt,images = self.get_formatted_prompt(inputs,use_image)
+    
+        prepare_input_list = []
+        for i in range(len(formatted_prompt)):
+            if images and isinstance(images[i],Image.Image):
+                images[i] = images[i].convert("RGB")
+            if images:
+                prepare_input = self.processor(prompt=formatted_prompt[i],images = [images[i]],force_batchify=False)
+            else:
+                prepare_input = self.processor(prompt=formatted_prompt[i],images = None,force_batchify=False)
+            prepare_input_list.append(prepare_input)
+        batch_inputs = self.processor.batchify(prepare_input_list).to(self.model.device)
+
+        with torch.no_grad():
+            inputs_embeds = self.model.prepare_inputs_embeds(
+                **batch_inputs, 
+                soft_prompt_id = self.soft_prompt_id,
+                soft_prompt_num = self.soft_prompt_num,
+                soft_prompt_embedding = self.prompt_embedding
+            )
+
+            outputs = self.model(
+                inputs_embeds = inputs_embeds,
+                attention_mask = batch_inputs['attention_mask'],
+                return_dict=True,
+                output_hidden_states=True,
+            )
+
+        base_hidden_states = outputs.hidden_states[-1][:,-1]
+        base_harmful_logits = classification(base_hidden_states,self.harmful_classfier_data,top_m=4,use_sigmoid=False).squeeze(-1)
+        base_refusal_logits = classification(base_hidden_states,self.refusal_classfier_data,top_m=4,use_sigmoid=False).squeeze(-1)
+
+        batch_prompts,_ = self.get_formatted_prompt(inputs,use_image)
+        formatted_prompt = [ self.add_soft_prompt(prompt) for prompt in batch_prompts]
+
+        prepare_input_list = []
+        for i in range(len(formatted_prompt)):
+            if images and isinstance(images[i],Image.Image):
+                images[i] = images[i].convert("RGB")
+            if images:
+                prepare_input = self.processor(prompt=formatted_prompt[i],images = [images[i]],force_batchify=False)
+            else:
+                prepare_input = self.processor(prompt=formatted_prompt[i],images = None,force_batchify=False)
+            prepare_input_list.append(prepare_input)
+        batch_inputs = self.processor.batchify(prepare_input_list).to(self.model.device)
+
+        inputs_embeds = self.model.prepare_inputs_embeds(
+            **batch_inputs, 
+            soft_prompt_id = self.soft_prompt_id,
+            soft_prompt_num = self.soft_prompt_num,
+            soft_prompt_embedding = self.prompt_embedding
+        )
+
+        outputs = self.model(
+            inputs_embeds = inputs_embeds,
+            attention_mask = batch_inputs['attention_mask'],
+            return_dict=True,
+            output_hidden_states=True,
+        )
+            
+        labels = inputs['safe']
+        
+        new_hidden_states = outputs.hidden_states[-1][:,-1]
         harmfulness_logits= classification(new_hidden_states,self.harmful_classfier_data,top_m=4,use_sigmoid=False).squeeze(-1)
         refusal_logits = classification(new_hidden_states,self.refusal_classfier_data,top_m=4,use_sigmoid=False).squeeze(-1)
 

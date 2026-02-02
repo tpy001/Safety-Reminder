@@ -341,6 +341,7 @@ def main(cfg) -> None:
 
             # 只取指定层和token
             hs_tuple = output if isinstance(output, tuple) else output.hidden_states
+            hs_tuple = hs_tuple[1]
             selected_layer = hs_tuple[cfg.select_layer]  # shape: (B, T, D)
             token_vec = selected_layer[:, cfg.select_token_index, :]  # shape: (B, D)
 
@@ -369,6 +370,7 @@ def main(cfg) -> None:
 
             # 只取指定层和token
             hs_tuple = output if isinstance(output, tuple) else output.hidden_states
+            hs_tuple = hs_tuple[-1]
             selected_layer = hs_tuple[cfg.select_layer]  # shape: (B, T, D)
             token_vec = selected_layer[:, cfg.select_token_index, :]  # shape: (B, D)
 

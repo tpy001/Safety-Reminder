@@ -12,6 +12,9 @@ class PGDAttackDataset(BaseDataset):
 
         # Load all adversarial images
         self.adv_images = self.load_adv_images()
+        # self.adv_images = ["work_dirs/PGD_llava_adaptive/adv_noise_1200.bmp"]  # Hard Code
+        # self.adv_images = ["work_dirs/PGD_llava_adaptive/adv_noise_1200.bmp"]  # Hard Code
+        # self.adv_images = ["data/PGD_attack/Llava/eps_64/image1.bmp"]  # Hard Code
 
         # Create cross-paired image-text dataset
         self.data =  Dataset.from_list(self.cross_pair_dataset())

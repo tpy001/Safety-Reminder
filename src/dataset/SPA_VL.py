@@ -7,6 +7,7 @@ from os.path import join
 
 
 class SPA_VL(BaseDataset):
+    name = "SPA_VL"
     def __init__(
         self,
         data_path = None, 
@@ -88,12 +89,35 @@ class SPA_VL(BaseDataset):
                 "parquet",
                 data_files={"train": os.path.join(self.data_path, "test_converted", file_name)}
             )["train"]
-    
+
+        # elif self.split == 'test':
+        #     if self.test_data_type == "harm":
+        #         file_name = "data_harm.jsonl"
+        #     else:
+        #         file_name = "data_help.jsonl"
+
+        #     dataset = huggingface_load_dataset(
+        #         "json",
+        #         data_files={"train": os.path.join(self.data_path, "test_converted", file_name)}
+        #     )["train"]
+            
+        #     if self.test_data_type == "harm":
+        #         return dataset.map(
+        #             lambda x: { 
+        #                 "image": os.path.join(self.data_path, "test_converted", "images_harm", x["image"])
+        #             }
+        #         )
+        #     else:
+        #         return dataset.map(
+        #             lambda x: { 
+        #                 "image": os.path.join(self.data_path, "test_converted", "images_help", x["image"])
+        #             }
+        #         )
+        
         elif self.split == 'validation':
             return huggingface_load_dataset(
                 "parquet",
                 data_files={"train": os.path.join(self.data_path, "validation_converted", "data.parquet")}
             )["train"]
-       
            
     

@@ -16,7 +16,7 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
+from transformers.generation import GenerationMixin
 import torch
 from attrdict import AttrDict
 from einops import rearrange
@@ -107,7 +107,8 @@ class MultiModalityPreTrainedModel(PreTrainedModel):
     _skip_keys_device_placement = "past_key_values"
 
 
-class MultiModalityCausalLM(MultiModalityPreTrainedModel):
+# class MultiModalityCausalLM(MultiModalityPreTrainedModel):
+class MultiModalityCausalLM(MultiModalityPreTrainedModel,GenerationMixin):
     def get_input_embeddings(self):
         return self.language_model.get_input_embeddings()
     
@@ -149,23 +150,24 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
         Returns:
             input_embeds (torch.Tensor): [b, T, D]
         """
+        if pixel_values.numel() > 0:
+            bs, n = pixel_values.shape[0:2]
+            images = rearrange(pixel_values, "b n c h w -> (b n) c h w")
+            # [b x n, T2, D]
+            images_embeds = self.aligner(self.vision_model(images))
 
-        bs, n = pixel_values.shape[0:2]
-        images = rearrange(pixel_values, "b n c h w -> (b n) c h w")
-        # [b x n, T2, D]
-        images_embeds = self.aligner(self.vision_model(images))
-
-        # [b x n, T2, D] -> [b, n x T2, D]
-        images_embeds = rearrange(images_embeds, "(b n) t d -> b (n t) d", b=bs, n=n)
-        # [b, n, T2] -> [b, n x T2]
-        images_emb_mask = rearrange(images_emb_mask, "b n t -> b (n t)")
+            # [b x n, T2, D] -> [b, n x T2, D]
+            images_embeds = rearrange(images_embeds, "(b n) t d -> b (n t) d", b=bs, n=n)
+            # [b, n, T2] -> [b, n x T2]
+            images_emb_mask = rearrange(images_emb_mask, "b n t -> b (n t)")
 
         # [b, T, D]
         input_ids[input_ids < 0] = 0  # ignore the image embeddings
         inputs_embeds = self.language_model.get_input_embeddings()(input_ids)
 
         # replace with the image embeddings
-        inputs_embeds[images_seq_mask] = images_embeds[images_emb_mask]
+        if pixel_values.numel() > 0:
+            inputs_embeds[images_seq_mask] = images_embeds[images_emb_mask]
 
         return inputs_embeds
 
