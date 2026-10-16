@@ -16,6 +16,24 @@ A jailbroken VLM may initially produce harmful content but recognize the risk la
 
 *Figure 3 from the AAAI 2026 paper: SAPT training and conditional soft prompt injection.*
 
+## Results
+
+LLaVA-1.5-7B results reported in the AAAI 2026 paper (Tables 1 and 2), not new measurements from this branch.
+
+**Attack success rate (ASR, %, lower is better)**
+
+| Method | FigStep | MMSafety | SPA-VL | ImgJP | GCG | BAP | Avg. |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| No Defense | 74.9 | 58.2 | 45.6 | 86.6 | 94.0 | 97.0 | 76.1 |
+| SAPT | 2.6 | 12.7 | 1.5 | 4.4 | 5.0 | 4.0 | 5.0 |
+
+**MM-Vet utility**
+
+| Method | Overall score (higher is better) | Refusal rate (%, lower is better) |
+| --- | ---: | ---: |
+| No Defense | 27.9 | 2.3 |
+| SAPT | 28.0 | 3.7 |
+
 ## 1. Installation
 
 ```bash
@@ -25,56 +43,38 @@ python -m pip install torch==2.4.0 torchvision==0.19.0 --index-url https://downl
 python -m pip install -e .
 ```
 
-## 2. Download model and datasets
+## 2. Download models and datasets
 
 ```bash
 hf download llava-hf/llava-1.5-7b-hf --revision b234b804b114d9e37bb655e11cbbb5f5e971b7a9 --local-dir models/llava-1.5-7b
 hf download PeiYuan001/VLM-Safety-Datasets --repo-type dataset --revision 48cf6aa39472c962ddd0b2d627cbf23ea5023b48 --include "data/*" --local-dir datasets/vlm-safety
+# Requires access to the Llama-Guard-3 model
+hf download meta-llama/Llama-Guard-3-8B --local-dir models/Llama-Guard-3-8B
 ```
 
-## 3. Inference
+## 3. Dataset inference and safety evaluation
 
 ```bash
-# Text
-python -m safevlm --mode baseline --device cuda:0 --question "Explain what a rainbow is."
-
-# Image and question; SAPT weights and classifier are included
-python -m safevlm --mode sapt --device cuda:0 --question "Describe this image." --image examples/sample.jpg
-
-# JSONL; image paths are relative to the input file
-python -m safevlm --mode sapt --input examples/requests.jsonl --output outputs/responses.jsonl
-
-# The same SPA-VL subset for baseline and SAPT
-python -m safevlm --mode baseline --dataset-config spavl_harm --data-dir datasets/vlm-safety --ids-file safevlm/resources/spavl_subset_ids.json --output outputs/spavl_baseline.jsonl
-python -m safevlm --mode sapt --dataset-config spavl_harm --data-dir datasets/vlm-safety --ids-file safevlm/resources/spavl_subset_ids.json --output outputs/spavl_sapt.jsonl
-
-# Other benchmarks: figstep, mmsafety_sd, mmsafety_typo, mmsafety_sd_typo
-python -m safevlm --mode sapt --dataset-config figstep --data-dir datasets/vlm-safety --limit 10 --output outputs/figstep_sapt.jsonl
+DATASET=spavl_harm  # spavl_harm, figstep, or mmsafety_sd_typo
+for MODE in baseline sapt; do
+  python -m safevlm --mode "$MODE" --dataset-config "$DATASET" --data-dir datasets/vlm-safety --device cuda:0 --output "outputs/${DATASET}_${MODE}.jsonl"
+  python -m safevlm.judge --model-path models/Llama-Guard-3-8B --device cuda:0 --input "outputs/${DATASET}_${MODE}.jsonl" --output "outputs/${DATASET}_${MODE}_judged.jsonl"
+done
+cat outputs/${DATASET}_*_judged.summary.json
 ```
+
+Each summary reports `asr_percent = 100 * unsafe / n`, plus `safe` and `unknown` counts. Unknown labels remain in the denominator. The commands evaluate the entire selected configuration.
 
 ## 4. Train SAPT
 
 ```bash
-# One-update check with two harmful and two benign examples
-python -m safevlm.train --data-dir datasets/vlm-safety --samples-per-pool 2 --epochs 1 --max-steps 1 --output-dir outputs/train_smoke
-
 # 256 harmful + 256 benign; L = L_gen + 0.05 * L_cls
 python -m safevlm.train --data-dir datasets/vlm-safety --safety-pool legacy --samples-per-pool 256 --epochs 20 --lr 0.0001 --grad-accum 4 --seed 0 --device cuda:0 --output-dir outputs/train_sapt
-
-# Inference with the trained prompt
-python -m safevlm --mode sapt --prompt-path outputs/train_sapt/prompt.pth --input examples/requests.jsonl --output outputs/trained_responses.jsonl
 ```
 
-## 5. Safety evaluation
+To evaluate the trained prompt, add `--prompt-path outputs/train_sapt/prompt.pth` to the SAPT inference command above.
 
-```bash
-# Requires access to the Llama-Guard-3 model
-hf download meta-llama/Llama-Guard-3-8B --local-dir models/Llama-Guard-3-8B
-python -m safevlm.judge --model-path models/Llama-Guard-3-8B --input outputs/spavl_baseline.jsonl --output outputs/spavl_baseline_judged.jsonl
-python -m safevlm.judge --model-path models/Llama-Guard-3-8B --input outputs/spavl_sapt.jsonl --output outputs/spavl_sapt_judged.jsonl
-```
-
-## 6. MM-Vet utility evaluation
+## 5. MM-Vet utility evaluation
 
 ```bash
 git clone https://github.com/yuweihao/MM-Vet_data.git datasets/mmvet
