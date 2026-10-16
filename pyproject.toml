@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safevlm"
+version = "0.1.0"
+description = "Minimal LLaVA-1.5 SAPT prompt training and inference"
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["safevlm*"]
+
+[tool.setuptools.package-data]
+safevlm = ["resources/*.pth", "resources/*.npz", "resources/*.json"]
