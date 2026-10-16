@@ -28,16 +28,16 @@ LLaVA-1.5-7B results reported in the AAAI 2026 paper (Tables 1 and 2), not new m
 | Self-Reminder | 72.0 | 50.0 | 9.8 | 85.2 | 51.0 | 97.0 | 60.8 |
 | DRO | 69.7 | 47.0 | 18.1 | 83.2 | 64.0 | 90.0 | 62.0 |
 | BlueSuffix | 72.3 | 39.8 | 8.3 | 38.4 | 53.0 | 43.0 | 42.5 |
-| ASTRA | 8.6 | 25.9 | 30.9 | 3.4 | 6.0 | 5.0 | 13.3 |
-| SAPT | 2.6 | 12.7 | 1.5 | 4.4 | 5.0 | 4.0 | 5.0 |
+| ASTRA | 8.6 | 25.9 | 30.9 | **3.4** | 6.0 | 5.0 | 13.3 |
+| SAPT | **2.6** | **12.7** | **1.5** | 4.4 | **5.0** | **4.0** | **5.0** |
 
 **MM-Vet utility**
 
 | Method | Overall score (higher is better) | Refusal rate (%, lower is better) |
 | --- | ---: | ---: |
 | No Defense | 27.9 | 2.3 |
-| Self-Reminder | 27.6 | 1.4 |
-| DRO | 29.0 | 2.8 |
+| Self-Reminder | 27.6 | **1.4** |
+| DRO | **29.0** | 2.8 |
 | BlueSuffix | 15.6 | 7.8 |
 | ASTRA | 27.8 | 1.8 |
 | SAPT | 28.0 | 3.7 |
