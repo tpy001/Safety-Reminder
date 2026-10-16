@@ -18,29 +18,134 @@ A jailbroken VLM may initially produce harmful content but recognize the risk la
 
 ## Results
 
-LLaVA-1.5-7B results reported in the AAAI 2026 paper (Tables 1 and 2), not new measurements from this branch.
+LLaVA-1.5-7B results reported in the [AAAI 2026 paper](https://ojs.aaai.org/index.php/AAAI/article/view/40607) (Tables 1 and 2). Bold values indicate the best result in each column.
 
-**Attack success rate (ASR, %, lower is better)**
+### Safety: attack success rate (%)
 
-| Method | FigStep | MMSafety | SPA-VL | ImgJP | GCG | BAP | Avg. |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| No Defense | 74.9 | 58.2 | 45.6 | 86.6 | 94.0 | 97.0 | 76.1 |
-| Self-Reminder | 72.0 | 50.0 | 9.8 | 85.2 | 51.0 | 97.0 | 60.8 |
-| DRO | 69.7 | 47.0 | 18.1 | 83.2 | 64.0 | 90.0 | 62.0 |
-| BlueSuffix | 72.3 | 39.8 | 8.3 | 38.4 | 53.0 | 43.0 | 42.5 |
-| ASTRA | 8.6 | 25.9 | 30.9 | **3.4** | 6.0 | 5.0 | 13.3 |
-| SAPT | **2.6** | **12.7** | **1.5** | 4.4 | **5.0** | **4.0** | **5.0** |
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2" align="left">Method</th>
+      <th colspan="3" align="center">Harmful benchmarks &darr;</th>
+      <th colspan="3" align="center">Adversarial attacks &darr;</th>
+      <th rowspan="2" align="center">Avg. &darr;</th>
+    </tr>
+    <tr>
+      <th align="center">FigStep</th>
+      <th align="center">MMSafety</th>
+      <th align="center">SPA-VL</th>
+      <th align="center">ImgJP</th>
+      <th align="center">GCG</th>
+      <th align="center">BAP</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="left">No Defense</td>
+      <td align="center">74.9</td>
+      <td align="center">58.2</td>
+      <td align="center">45.6</td>
+      <td align="center">86.6</td>
+      <td align="center">94.0</td>
+      <td align="center">97.0</td>
+      <td align="center">76.1</td>
+    </tr>
+    <tr>
+      <td align="left">Self-Reminder</td>
+      <td align="center">72.0</td>
+      <td align="center">50.0</td>
+      <td align="center">9.8</td>
+      <td align="center">85.2</td>
+      <td align="center">51.0</td>
+      <td align="center">97.0</td>
+      <td align="center">60.8</td>
+    </tr>
+    <tr>
+      <td align="left">DRO</td>
+      <td align="center">69.7</td>
+      <td align="center">47.0</td>
+      <td align="center">18.1</td>
+      <td align="center">83.2</td>
+      <td align="center">64.0</td>
+      <td align="center">90.0</td>
+      <td align="center">62.0</td>
+    </tr>
+    <tr>
+      <td align="left">BlueSuffix</td>
+      <td align="center">72.3</td>
+      <td align="center">39.8</td>
+      <td align="center">8.3</td>
+      <td align="center">38.4</td>
+      <td align="center">53.0</td>
+      <td align="center">43.0</td>
+      <td align="center">42.5</td>
+    </tr>
+    <tr>
+      <td align="left">ASTRA</td>
+      <td align="center">8.6</td>
+      <td align="center">25.9</td>
+      <td align="center">30.9</td>
+      <td align="center"><strong>3.4</strong></td>
+      <td align="center">6.0</td>
+      <td align="center">5.0</td>
+      <td align="center">13.3</td>
+    </tr>
+    <tr>
+      <td align="left"><strong>SAPT (Ours)</strong></td>
+      <td align="center"><strong>2.6</strong></td>
+      <td align="center"><strong>12.7</strong></td>
+      <td align="center"><strong>1.5</strong></td>
+      <td align="center">4.4</td>
+      <td align="center"><strong>5.0</strong></td>
+      <td align="center"><strong>4.0</strong></td>
+      <td align="center"><strong>5.0</strong></td>
+    </tr>
+  </tbody>
+</table>
 
-**MM-Vet utility**
+### Utility: MM-Vet
 
-| Method | Overall score (higher is better) | Refusal rate (%, lower is better) |
-| --- | ---: | ---: |
-| No Defense | 27.9 | 2.3 |
-| Self-Reminder | 27.6 | **1.4** |
-| DRO | **29.0** | 2.8 |
-| BlueSuffix | 15.6 | 7.8 |
-| ASTRA | 27.8 | 1.8 |
-| SAPT | 28.0 | 3.7 |
+<table>
+  <thead>
+    <tr>
+      <th align="left">Method</th>
+      <th align="center">Overall score &uarr;</th>
+      <th align="center">Refusal rate (%) &darr;</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="left">No Defense</td>
+      <td align="center">27.9</td>
+      <td align="center">2.3</td>
+    </tr>
+    <tr>
+      <td align="left">Self-Reminder</td>
+      <td align="center">27.6</td>
+      <td align="center"><strong>1.4</strong></td>
+    </tr>
+    <tr>
+      <td align="left">DRO</td>
+      <td align="center"><strong>29.0</strong></td>
+      <td align="center">2.8</td>
+    </tr>
+    <tr>
+      <td align="left">BlueSuffix</td>
+      <td align="center">15.6</td>
+      <td align="center">7.8</td>
+    </tr>
+    <tr>
+      <td align="left">ASTRA</td>
+      <td align="center">27.8</td>
+      <td align="center">1.8</td>
+    </tr>
+    <tr>
+      <td align="left"><strong>SAPT (Ours)</strong></td>
+      <td align="center">28.0</td>
+      <td align="center">3.7</td>
+    </tr>
+  </tbody>
+</table>
 
 ## 1. Installation
 
@@ -93,3 +198,21 @@ python -m safevlm --mode sapt --input outputs/mmvet/input.jsonl --output outputs
 ```
 
 Submit `outputs/mmvet/baseline.mmvet.json` and `outputs/mmvet/sapt.mmvet.json` to the [MM-Vet v1 evaluator](https://huggingface.co/spaces/whyu/MM-Vet_Evaluator).
+
+## Citation
+
+If you find this repository helpful, please cite our paper:
+
+```bibtex
+@article{tang2026safetyreminder,
+  title   = {SafetyReminder: Reviving Delayed Safety Awareness of Vision-Language Models to Defend Against Jailbreak Attacks},
+  author  = {Tang, Peiyuan and Xin, Haojie and Zhang, Xiaodong and Sun, Jun and Xia, Qin and Yang, Zijiang James},
+  journal = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume  = {40},
+  number  = {39},
+  pages   = {33223--33231},
+  year    = {2026},
+  doi     = {10.1609/aaai.v40i39.40607},
+  url     = {https://ojs.aaai.org/index.php/AAAI/article/view/40607}
+}
+```
